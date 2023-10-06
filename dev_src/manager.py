@@ -19,17 +19,17 @@ if __name__ == '__main__':
     cap = int(args.cap) if args.cap else wh.DEFAULT_CAP
 
     r = redis.Redis(host=host, port = port)
+    print(f"Manager: Started successfully and is hosted on {host}")
+    #wh.hang_until_redis_is_loaded(r)
     # Optional, in production should just append to database
-    r.flushdb()
-    print(f"Manager started successfully and is hosted on {host}")
     while True:
-        lendb0, lendb1 = wh.get_queue_len(host, port)
+        lendb0, lendb1 = wh.get_queue_len(r)
         print(lendb0, lendb1)
         if lendb0 == -1:
             print("Error: db0 is empty")
             while lendb0 == -1:
                 time.sleep(1)
-                lendb0, lendb1 = wh.get_queue_len(host, port)
+                lendb0, lendb1 = wh.get_queue_len(r)
                 continue
         # Swap databases whenever db1 is full
         if lendb1 > cap:

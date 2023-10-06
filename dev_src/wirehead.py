@@ -1,4 +1,6 @@
 import redis
+import numpy as np
+from torch.utils.data import DataLoader, Dataset
 import time
 import os
 import pickle
@@ -19,9 +21,8 @@ working VEWY HAWD to fix this!"""
 PATH_TO_DATA = "/data/users1/mdoan4/wirehead/synthseg/data/training_label_maps/"
 DATA_FILES = ["training_seg_01.nii.gz",  "training_seg_02.nii.gz",  "training_seg_03.nii.gz",  "training_seg_04.nii.gz",  "training_seg_05.nii.gz",  "training_seg_06.nii.gz",  "training_seg_07.nii.gz",  "training_seg_08.nii.gz",  "training_seg_09.nii.gz",  "training_seg_10.nii.gz",  "training_seg_11.nii.gz",  "training_seg_12.nii.gz",  "training_seg_13.nii.gz",  "training_seg_14.nii.gz",  "training_seg_15.nii.gz", "training_seg_16.nii.gz", "training_seg_17.nii.gz", "training_seg_18.nii.gz","training_seg_19.nii.gz", "training_seg_20.nii.gz",]
 
-def get_queue_len(host = DEFAULT_HOST, port = DEFAULT_PORT):
+def get_queue_len(r):
     try:
-        r = redis.Redis(host= host, port=DEFAULT_PORT, db=0)
         return r.llen('db0'), r.llen('db1')
     except:
         return -1, -1
@@ -63,3 +64,46 @@ def push_db(r, package_bytes):
                 r.rpush("db0", package_bytes)
         finally:
             r.delete(lock_name)
+
+def load_fake_samples():
+    im = np.load('/data/users1/mdoan4/wirehead/src/samples/image.npy')
+    lab = np.load('/data/users1/mdoan4/wirehead/src/samples/label.npy')
+    return im, lab
+
+def hang_until_redis_is_loaded(r):
+    while (True):
+        try:
+            r.rpush('status', bytes(True))
+            break
+            return
+        except redis.ConnectionError:
+            print(f"Redis is loading database...")
+            time.sleep(5)
+        except KeyboardInterrupt:
+            print("Exiting.")
+            break
+            return
+
+class wirehead_dataloader(Dataset):
+    def __init__(self, host = DEFAULT_HOST, port = DEFAULT_PORT):
+        self.r = redis.Redis(host=host, port=port)
+        hang_until_redis_is_loaded(self.r)
+        lendb0, lendb1 = get_queue_len(self.r)
+        while lendb0 < 2:
+            print('Dataloader: Database is currently empty, please wait')
+            time.sleep(10)
+            lendb0, lendb1 = get_queue_len(self.r)
+        self.db_key = 'db0'
+    def __len__(self):
+        return int(1e6)
+
+    def __getitem__(self, index):
+        while True:
+            pickled_data = self.r.lpop(self.db_key)
+            if pickled_data is not None:
+                self.r.rpush(self.db_key, pickled_data)
+                data = pickle.loads(pickled_data)
+                return data[0], data[1]
+            else:
+                time.sleep(0.5)
+

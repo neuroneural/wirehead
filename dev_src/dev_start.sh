@@ -14,6 +14,7 @@ REDIS_PID=$!
 
 sleep 2 
 
+redis-cli flushall
 LOCAL_IP=$(hostname -I | awk '{print $1}')
 echo $LOCAL_IP
 
@@ -23,7 +24,7 @@ source /data/users1/mdoan4/anaconda3/etc/profile.d/conda.sh
 conda activate wirehead
 python /data/users1/mdoan4/wirehead/dev_src/redis_status.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID 
 python /data/users1/mdoan4/wirehead/dev_src/generate.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID &
-python /data/users1/mdoan4/wirehead/dev_src/manager.py --ip $LOCAL_IP --cap $CAP $SLURM_ARRAY_TASK_ID
+python /data/users1/mdoan4/wirehead/dev_src/manager.py --ip $LOCAL_IP --cap $CAP $SLURM_ARRAY_TASK_ID &
 python /data/users1/mdoan4/wirehead/dev_src/dataloader.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID &
 
 

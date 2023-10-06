@@ -19,25 +19,13 @@ if __name__ == '__main__':
 
     fake_im, fake_lab = wh.load_fake_samples()
 
-
     while (True): 
         try:
             r = redis.Redis(host=host, port = port)
-            #wh.hang_until_redis_is_loaded(r)
-            print(f"Generator: Connecting to {host}")
-
-            while(True):
-                im, lab = fake_im, fake_lab 
-                package = (im,lab)
-                package_bytes = pickle.dumps(package)
-
-                # Push to db1
-                wh.push_db(r, package_bytes) 
-
-                #Optional timeout
-                time.sleep(0.1)
+            r.rpush('status', bytes(True))
+            break 
         except redis.ConnectionError:
-            print(f"Generator: Failed to connect to redis server on {host}, retrying...")
+            print(f"Redis is loading database...")
             time.sleep(5)
         except KeyboardInterrupt:
             print("Exiting.")
