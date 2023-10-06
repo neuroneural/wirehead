@@ -1,26 +1,23 @@
-SynthSeg Auto Redis Queue
+<h1>wirehead</h1>
 
-* A project to make synthetic head generation using SynthSeg not take actual ages. *
-
----
-
-Setup:
-
-- conda activate wirehead
-- launch redis on local node
-- run generate.py on one terminal instance (this will just do it's business, pushing to the queue)
-- when needed, launch dataloader.py to extract data out from the queue 
+<div style="text-align:center; height:200px; overflow:hidden;"">
+  <img src="assets/wirehead.jpeg" alt="Wirehead" style="width:500px; object-fit:crop;">
+</div>
 
 ---
 
-Optimizations on the table:
+<h1>Description</h1>
 
-** Server side **
+* A dynamic data caching platform for low throughput synthetic data generation pipelines
+* Built for SynthSeg on ARCTIC Slurm cluster
+* Built on Redis for extremely high throughput and for funky database manipulation techniques
 
-- faster GPUs for SynthSeg
-- parallezie SynthSeg generation
+---
 
-** Client side **
+<h1>User guide</h1>
+- [ ] WIP WIP WIP WIP
 
-- parallelize dataloader task using num_wokers
-- 
+---
+
+<h1>Roadmap</h1>
+- [ ] WIP WIP WIP WIP
