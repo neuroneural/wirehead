@@ -1,4 +1,4 @@
- import torch
+import torch
 from torch.utils.data import DataLoader, Dataset
 import time
 import redis
@@ -46,7 +46,12 @@ if __name__ == "__main__":
     dataset = wirehead_dataloader()
     dataloader = DataLoader(dataset, batch_size=1)
     for batch in dataloader:
-        print(batch[0])
         time.sleep(0.5)
-        im, lab = [],[]
+        im, lab = batch[0], batch[1]
+        np.save('./samples/label.npy', lab)
+        np.save('./samples/image.npy', im)
+        print(lab)
+        print(im)
+
+        
   
