@@ -1,7 +1,7 @@
 <h1>wirehead</h1>
 
-<div style="text-align:center; height:200px; overflow:hidden;"">
-  <img src="assets/wirehead.jpeg" alt="Wirehead" style="width:500px; object-fit:crop;">
+<div style="text-align:center; height:200px; overflow:hidden;">
+  <img src="assets/wirehead_oct6.jpeg.jpeg" alt="Wirehead" style="width:500px; object-fit:crop;">
 </div>
 
 ---
