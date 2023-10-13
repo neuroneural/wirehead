@@ -10,7 +10,7 @@ import random
 # Things that users should change
 DEFAULT_HOST = 'localhost'
 DEFAULT_PORT = 6379
-DEFAULT_CAP = 1000
+DEFAULT_CAP = 30 
 MANAGER_TIMEOUT = 1
 
 
@@ -173,6 +173,53 @@ class wirehead_dataloader_v1(Dataset):
                 time.sleep(DATALOADER_SLEEP_TIME)
                 retries += 1
         raise Exception("Dataloader: Max retries reached, database unavailable.")
+
+class wirehead_dataloader_v2(Dataset):
+    def __init__(self, transform, fields=None, id="id", host=DEFAULT_HOST, port=DEFAULT_PORT):
+        # Declare redis server to draw data from
+        self.r = redis.Redis(host=host, port=port)
+        # This whole block of code to check for redis status, and prevents script prematurely terminating if
+        # redis is either not active or if the rotating database isn't filled up
+        # Note: This dataloader will ALWAYS ATTEMPT to load, and will note terminate
+        hang_until_redis_is_loaded(self.r)
+        lendb0, lendb1 = get_queue_len(self.r)
+        while lendb0 < 2:
+            print('Dataloader: Database is currently empty, please wait') # For debugging, remove in prod
+            time.sleep(10)
+            lendb0, lendb1 = get_queue_len(self.r)
+        # Actual inits are here
+        self.transform = transform
+        self.db_key = 'db0'
+
+    def __len__(self):
+        return int(1e6)
+
+    # todo:
+    # - Pushing and popping to redis is a bottle neck, need to fix
+    # - Manually unpickling the database is a hassle, need to fix
+    #   - Maybe instead of loading from database I move to a local cache with db0? 
+    #     This would greatly simplify code and also removes overhead of manually
+    #     processing all elements every time a load is required
+    # - Pickling is also an overhead, need to replace
+    def __getitem__(self, index):
+        r = self.r
+        if not r.exists("wirehead_index"):
+            r.set("wirehead_index", 0)
+            index = 0
+        while True:
+            pickled_data = r.lindex(self.db_key, index)
+            if pickled_data is not None:
+                data = pickle.loads(pickled_data)
+                r.incr("wirehead_index")
+                index = int(r.get("wirehead_index"))
+                if index > DEFAULT_CAP:
+                    index = 0
+                    r.set("wirehead_index", 0)
+                return self.transform(data[0]), self.transform(data[1])
+            else:
+                time.sleep(DATALOADER_SLEEP_TIME)
+                r.set("wirehead_index", 0)
+                index = 0
 
 
 

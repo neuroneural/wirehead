@@ -1,6 +1,5 @@
 #!/bin/bash
 
-CAP=30
 PORT=6379
 
 export PATH=$PATH:/data/users1/mdoan4/wirehead/redis/redis-stable/src/
@@ -25,7 +24,7 @@ conda activate wirehead
 python /data/users1/mdoan4/wirehead/dev_src/redis_status.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID 
 
 python /data/users1/mdoan4/wirehead/dev_src/generate.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID &
-python /data/users1/mdoan4/wirehead/dev_src/manager.py --ip $LOCAL_IP --cap $CAP $SLURM_ARRAY_TASK_ID #&
+python /data/users1/mdoan4/wirehead/dev_src/manager.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID #&
 #python /data/users1/mdoan4/wirehead/dev_src/dataloader.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID 
 
 
