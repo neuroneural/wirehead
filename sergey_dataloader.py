@@ -10,7 +10,6 @@ from catalyst.data import BatchPrefetchLoaderWrapper
 from catalyst.data.sampler import DistributedSamplerWrapper
 from catalyst.dl import DataParallelEngine, DistributedDataParallelEngine
 from catalyst.data.loader import ILoaderWrapper
-import ipdb
 import nibabel as nib
 import numpy as np
 import torch
@@ -24,7 +23,7 @@ from torch.optim.lr_scheduler import (
     ConstantLR,
 )
 from torch.utils.data import DataLoader, Dataset, DistributedSampler
-from dice import faster_dice, DiceLoss
+from dice import faster_dice 
 from meshnet import enMesh_checkpoint, enMesh
 from mongoslabs.gencoords import CoordsGenerator
 from mongoslabs.mongoloader import (
