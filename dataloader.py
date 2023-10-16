@@ -29,6 +29,6 @@ if __name__ == "__main__":
         avg_time = total_time / num_samples 
         
         samples_per_sec = 1.0 / avg_time
+        print(im)
         
-        print(f"Time taken: {elapsed_time:.6f} seconds. Average time: {avg_time:.6f} seconds. Samples per second: {samples_per_sec:.2f}.")
 
