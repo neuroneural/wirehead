@@ -35,6 +35,9 @@ from mongoslabs.mongoloader import (
     MongoClient,
     mtransform,
 )
+
+import wirehead as wh
+import redis
 # SEED = 0
 # utils.set_global_seed(SEED)
 # utils.prepare_cudnn(deterministic=False, benchmark=False) # crashes everything
@@ -150,11 +153,12 @@ class CustomRunner(dl.Runner):
             if self.shape == 256
             else self.funcs["mycollate"]
         )
-        num_examples = self.num_examples
-        tdataset = WireheadDataset(
-            range(num_examples),
-            self.funcs["mytransform"],
-            None,
+        #### Wirehead Code ######
+        #num_examples = self.num_examples
+        def my_transform(x):
+            return x
+        tdataset = wh.wirehead_dataloader_v2(
+                transform = my_transform
         )
         tsampler = (
             DistributedSamplerWrapper(MBatchSampler(tdataset, batch_size=1))
@@ -175,6 +179,7 @@ class CustomRunner(dl.Runner):
             num_prefetches=self.prefetches,
         )
         return {"train": tdataloader}
+        ##################################
     def get_model(self):
         if self.shape > MAXSHAPE:
             model = enMesh(
@@ -346,7 +351,7 @@ if __name__ == "__main__":
     optimize_inline = False
     model_channels = 15
     model_label = "_startLARGE"
-    model_path = f"./logs/tmp/curriculum_enmesh_{model_channels}channels_3_do/model.last.pth"
+    model_path = f"./enmesh_48_channels_ELU_largeLR/model.last.pth"
     logdir = f"./logs/tmp/curriculum_enmesh_{model_channels}channels_3_nodo/"
     wandb_project = f"curriculum_{model_channels}_gwm"
     client_creator = ClientCreator(DBNAME, MONGOHOST, LABELNOW)

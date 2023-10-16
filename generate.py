@@ -17,7 +17,7 @@ if __name__ == '__main__':
     host = args.ip if args.ip else wh.DEFAULT_HOST
     port = args.port if args.port else wh.DEFAULT_PORT
 
-    fake_im, fake_lab = wh.load_fake_samples()
+    fake_im, fake_lab = map(wh.quantize_to_uint8, wh.load_fake_samples())
 
 
     while (True): 
