@@ -4,7 +4,6 @@ PORT=6379
 
 export PATH=$PATH:/data/users1/mdoan4/wirehead/redis/redis-stable/src/
 
-
 echo $HOSTNAME >&2
 
 # Start redis
@@ -19,20 +18,16 @@ echo $LOCAL_IP
 
 # Start python scripts
 trap 'pkill -P $$' EXIT
+
 source /data/users1/mdoan4/anaconda3/etc/profile.d/conda.sh
-conda activate wirehead
-python /data/users1/mdoan4/wirehead/dev_src/redis_status.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID 
 
-python /data/users1/mdoan4/wirehead/dev_src/generate.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID &
-python /data/users1/mdoan4/wirehead/dev_src/manager.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID #&
-#python /data/users1/mdoan4/wirehead/dev_src/dataloader.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID 
+conda activate wirehead_train
+python /data/users1/mdoan4/wirehead/dev_src/manager.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID &
+python /data/users1/mdoan4/wirehead/dev_src/dataloader.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID  
 
-
+echo "murdered"
 # Cleanup 
 kill $REDIS_PID
 
-
 wait
-
-
 
