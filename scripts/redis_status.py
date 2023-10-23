@@ -23,12 +23,13 @@ if __name__ == '__main__':
         try:
             r = redis.Redis(host=host, port = port)
             r.rpush('status', bytes(True))
+            print("Redis Status: OK")
             break 
         except redis.ConnectionError:
-            print(f"Redis is loading database...")
+            print(f"Redis Status: Connection error")
             time.sleep(5)
         except KeyboardInterrupt:
-            print("Exiting.")
+            print("Redis Status: Exiting.")
             break
             
 

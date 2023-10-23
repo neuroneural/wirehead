@@ -1,57 +1,96 @@
-import torch
-from torch.utils.data import DataLoader, Dataset
-import time
-import redis
+from datetime import datetime 
+import os
+import easybar
+
+#from torch.cuda.amp import autocast, GradScaler
+
+#from catalyst import dl, metrics, utils
+from catalyst.data import BatchPrefetchLoaderWrapper
+from catalyst.data.sampler import DistributedSamplerWrapper
+from catalyst.dl import DataParallelEngine, DistributedDataParallelEngine
+
+import nibabel as nib
 import numpy as np
-import pickle
-import sys
 
-DEFAULT_HOST = 'arctrdagn019'
-DEFAULT_PORT = 6379
-DEFAULT_DBKEY = 'db0'
-ERROR_STRING = """Oppsie Woopsie! Uwu Redwis made a shwuky wucky!! A widdle
-bwucko boingo! The code monkeys at our headquarters are
-working VEWY HAWD to fix this!"""
+import torch
+from torch.utils.data import DataLoader, Dataset,DistributedSampler
 
 
-def get_queue_len(host = DEFAULT_HOST, port = DEFAULT_PORT):
-    try:
-        r = redis.Redis(host= DEFAULT_HOST, port=DEFAULT_PORT, db=0)
-        return r.llen('db0'), r.llen('db1')
-    except:
-        return -1, -1
+from dice import faster_dice
+from meshnet import MeshNet
+from mongoslabs.gencoords import CoordsGenerator
+from blendbatchnorm import fuse_bn_recursively
 
-class wirehead_dataloader(Dataset):
-    def __init__(self, host = DEFAULT_HOST, port = DEFAULT_PORT, db_key=DEFAULT_DBKEY):
-        self.r = redis.Redis(host=host, port=port)
-        self.db_key = 'db0'
-    def __len__(self):
-        return int(1e6)
 
-    def __getitem__(self, index):
-        while True:
-            pickled_data = self.r.lpop(self.db_key)
-            if pickled_data is not None:
-                self.r.rpush(self.db_key, pickled_data)
-                data = pickle.loads(pickled_data)
-                return data[0], data[1]
-            else:
-                time.sleep(0.5)
+from mongoslabs.mongoloader import (
+        create_client,
+        collate_subcubes,
+        mcollate,
+        MBatchSampler,
+        MongoDataset,
+        MongoClient,
+        mtransform,
+)
 
-if __name__ == "__main__":
-    lendb0, lendb1 = get_queue_len()
-    if lendb0 == 0:
-        print('database is kinda empty, please wait')
-        exit()
-    dataset = wirehead_dataloader()
-    dataloader = DataLoader(dataset, batch_size=1)
-    for batch in dataloader:
-        time.sleep(0.5)
-        im, lab = batch[0], batch[1]
-        np.save('./samples/label.npy', lab)
-        np.save('./samples/image.npy', im)
-        print(lab)
-        print(im)
 
-        
-  
+# Wirehead imports
+import wirehead as wh
+
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:100'
+os.environ['TORCH_DISTRIBUTED_DEBUG'] = 'DETAIL'
+
+
+volume_shape = [256]*3
+subvolume_shape = [256]*3
+
+
+# All this stuff is probably useless for me
+LABELNOW=["sublabel", "gwmlabel", "50label"][0]
+MONGOHOST = "arctrdcn018.rs.gsu.edu"
+DBNAME = 'MindfulTensors'
+COLLECTION = 'MRNslabs'
+INDEX_ID = "subject"
+VIEWFIELDS = ["subdata", LABELNOW, "id", "subject"]
+config_file = "modelAE.json"
+model_channels = 21
+#coord_generator = CoordsGenerator(volume_shape, subvolume_shape)
+model_label = "manual"
+batched_subjs = 1
+batch_size = 1
+n_classes = 104
+image_path = "/data/users2/splis/data/enmesh2/data/t1_c.nii.gz"
+
+
+# Temp functions
+def my_transform(x):
+    return x
+def my_collate_fn(batch):
+    # Wirehead always fetches with batch = 1
+    item = batch[0]
+    img = item[0] 
+    lab = item[1] 
+    return torch.tensor(img), torch.tensor(lab)
+
+# Dataloading with wirehead 
+tdataset = wh.wirehead_dataloader_v3(transform=my_transform, num_samples = 10)
+tsampler= (
+        MBatchSampler(tdataset)
+        )
+tdataloader = BatchPrefetchLoaderWrapper(
+        DataLoader(
+            tdataset,
+            #sampler=tsampler,
+            collate_fn = my_collate_fn,
+            # Wirehead: Temporary change for debugging
+            pin_memory=True,
+            #worker_init_fn=create_client,
+            num_workers=1,
+            ),
+        num_prefetches=1 
+        )
+for loader in [tdataloader]:
+    for i, batch in enumerate(loader):
+        easybar.print_progress(i, len(loader))
+
+print("hi")
+
