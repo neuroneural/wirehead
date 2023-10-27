@@ -10,6 +10,8 @@ sys.path.append('/data/users1/mdoan4/wirehead/synthseg')
 from ext.lab2im import utils
 from SynthSeg.brain_generator import BrainGenerator
 
+# todo: Make this stuff dynamic somehow, mb just import a class from wirehead or something
+
 DEFAULT_HOST = 'localhost'
 DEFAULT_PORT = 6379
 error_string = """Oppsie Woopsie! Uwu Redwis made a shwuky wucky!! A widdle
@@ -88,6 +90,7 @@ if __name__ == '__main__':
         pickle_time = time.time()
         package = (im,lab)
         package_bytes = pickle.dumps(package)
+        print(time.time())
         print(f"The pickling took {time.time() - pickle_time}")
 
         # Push to db1
