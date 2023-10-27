@@ -99,6 +99,7 @@ def hang_until_redis_is_loaded(r):
             break
             return
 
+"""
 class wirehead_dataloader(Dataset):
     def __init__(self, host = DEFAULT_HOST, port = DEFAULT_PORT):
         self.r = redis.Redis(host=host, port=port)
@@ -230,6 +231,7 @@ class wirehead_dataloader_v2(Dataset):
                 time.sleep(DATALOADER_SLEEP_TIME)
                 r.set("wirehead_index", 0)
                 index = 0
+"""
 
 class wirehead_dataloader_v3(Dataset):
     def __init__(self, transform, num_samples = int(1e6), fields=None, id="id", host=DEFAULT_HOST, port=DEFAULT_PORT):
