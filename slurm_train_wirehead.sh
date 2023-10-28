@@ -2,8 +2,6 @@
 
 #SBATCH --job-name=wirehead-train-test
 #SBATCH --nodes=1
-#SBATCH -c 16
-#SBATCH --mem=50g
 #SBATCH --output=./log/wirehead_training_test_output.log
 #SBATCH --error=./log/wirehead_training_test_errors.log
 #SBATCH --time=01:00:00
@@ -34,6 +32,8 @@ source /data/users1/mdoan4/anaconda3/etc/profile.d/conda.sh
 
 conda activate wirehead_train
 python /data/users1/mdoan4/wirehead/dev_src/manager.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID &
+
+
 python /data/users1/mdoan4/wirehead/dev_src/dataloader.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID  
 
 echo "murdered"

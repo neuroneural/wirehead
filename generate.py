@@ -35,6 +35,35 @@ def lock_db(r, lock_name, timeout=10):
             r.expire(lock_name, timeout)
             return True
         time.sleep(0.1)
+def attempt_redis_connection(host, port):
+    while(True):
+        try:
+            r = redis.Redis(host=host, port = port)
+            return r
+        except redis.ConnectionError:
+            print(f"Generator: Redis is not responding") 
+            time.sleep(5)
+        except KeyboardInterrupt:
+            print("Generator: Terminating at Redis loading.")
+            break
+            return None 
+
+
+
+def hang_until_redis_is_loaded(r):
+    while (True):
+        try:
+            r.rpush('status', bytes(True))
+            break
+            return 
+        except redis.ConnectionError:
+            print(f"Generator: Redis is not responding") 
+            time.sleep(5)
+        except KeyboardInterrupt:
+            print("Generator: Terminating at Redis loading.")
+            break
+            return None 
+
 
 
 if __name__ == '__main__':
@@ -48,8 +77,10 @@ if __name__ == '__main__':
 
     training_seg = random.choice(DATA_FILES)
     brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
-    print(training_seg)
-    r = redis.Redis(host=host, port = port)
+    print(f"Generator: SynthSeg is generating off {training_seg}")
+    r = attempt_redis_connection(host, port)
+    hang_until_redis_is_loaded(r)
+    print(f"Generator: Connected to Redis hosted at {host}:{port}")
 
     while(True):
         start_time = time.time()

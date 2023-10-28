@@ -6,6 +6,7 @@ import os
 import pickle
 import sys
 import random
+from datetime import datetime, timedelta
 
 # Things that users should change
 DEFAULT_HOST = 'localhost'
@@ -272,6 +273,18 @@ class wirehead_dataloader_v3(Dataset):
                 r.set("wirehead_index", 0)
                 index = 0
 
+#-- Utils ---------------------------
+def time_between_calls():
+    last_time = None
+    while True:
+        current_time = datetime.utcnow()
+        if last_time:
+            time_diff = current_time - last_time
+            # Round to 4 decimal places
+            time_diff = round(time_diff.total_seconds(), 4)
+            yield f"{time_diff} seconds"
+        last_time = current_time
+        yield None
 
 
 
