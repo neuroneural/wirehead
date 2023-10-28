@@ -2,9 +2,9 @@ from datetime import datetime
 import os
 import easybar
 
-from torch.cuda.amp import autocast, GradScaler
+#from torch.cuda.amp import autocast, GradScaler
 
-from catalyst import dl, metrics, utils
+#from catalyst import dl, metrics, utils
 from catalyst.data import BatchPrefetchLoaderWrapper
 from catalyst.data.sampler import DistributedSamplerWrapper
 from catalyst.dl import DataParallelEngine, DistributedDataParallelEngine
@@ -81,31 +81,19 @@ tdataloader = BatchPrefetchLoaderWrapper(
             tdataset,
             #sampler=tsampler,
             collate_fn = my_collate_fn,
+            # Wirehead: Temporary change for debugging
             pin_memory=True,
             #worker_init_fn=create_client,
-            num_workers=1,
-            ),
+            num_workers=1,),
         num_prefetches=1 
         )
+
+wirehead_latency = wh.time_between_calls()
 for loader in [tdataloader]:
     for i, batch in enumerate(loader):
-        output_dir = "../samples/"
-        # Create the directory if it doesn't exist
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        img, lab = batch
-        img_np = img.cpu().numpy()
-        lab_np = lab.cpu().numpy()
-        # Create Nifti images
-        img_nii = nib.Nifti1Image(img_np, np.eye(4))
-        lab_nii = nib.Nifti1Image(lab_np, np.eye(4))
-
-        # Save in samples directory
-        nib.save(img_nii, os.path.join(output_dir, f"batch_{i}_img.nii.gz"))
-        nib.save(lab_nii, os.path.join(output_dir, f"batch_{i}_lab.nii.gz"))
-
+        next(wirehead_latency)
         easybar.print_progress(i, len(loader))
+        print(next(wirehead_latency))
 
-print("hi")
+print("Dataloader: Terminated")
 

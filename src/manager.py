@@ -24,11 +24,11 @@ if __name__ == '__main__':
     # Optional, in production should just append to database
     while True:
         lendb0, lendb1 = wh.get_queue_len(r)
-        print(lendb0, lendb1)
+        print(time.time(), lendb0, lendb1)
         if lendb0 == -1:
             print("Error: db0 is empty")
             while lendb0 == -1:
-                time.sleep(1)
+                time.sleep(5)
                 lendb0, lendb1 = wh.get_queue_len(r)
                 continue
         # Swap databases whenever db1 is full

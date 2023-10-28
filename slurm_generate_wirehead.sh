@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --job-name=wirehead-train-test
-#SBATCH --nodes=1
+#SBATCH --nodes=4
 #SBATCH -c 16 
 #SBATCH --mem=10g
 #SBATCH --output=./log/wirehead_generator_test.log
