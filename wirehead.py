@@ -6,11 +6,12 @@ import os
 import pickle
 import sys
 import random
+from datetime import datetime, timedelta
 
 # Things that users should change
 DEFAULT_HOST = 'localhost'
 DEFAULT_PORT = 6379
-DEFAULT_CAP = 30 
+DEFAULT_CAP = 1000 
 MANAGER_TIMEOUT = 1
 
 
@@ -260,18 +261,31 @@ class wirehead_dataloader_v3(Dataset):
         while True:
             pickled_data = r.lindex(self.db_key, index)
             if pickled_data is not None:
-                data = pickle.loads(pickled_data)
+                #data = pickle.loads(pickled_data)
                 r.incr("wirehead_index")
                 index = int(r.get("wirehead_index"))
                 if index > DEFAULT_CAP:
                     index = 0
                     r.set("wirehead_index", 0)
+                data=(1,0)
                 return self.transform(data[0]), self.transform(data[1])
             else:
                 time.sleep(DATALOADER_SLEEP_TIME)
                 r.set("wirehead_index", 0)
                 index = 0
 
+#-- Utils ---------------------------
+def time_between_calls():
+    last_time = None
+    while True:
+        current_time = datetime.utcnow()
+        if last_time:
+            time_diff = current_time - last_time
+            # Round to 4 decimal places
+            time_diff = round(time_diff.total_seconds(), 4)
+            yield f"{time_diff} seconds"
+        last_time = current_time
+        yield None
 
 
 
