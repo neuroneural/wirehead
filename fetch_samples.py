@@ -97,13 +97,17 @@ for loader in [tdataloader]:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        img, lab = batch
+        im, lab = batch
         img_np = img.cpu().numpy()
         lab_np = lab.cpu().numpy()
+
         # Create Nifti images
         img_nii = Nifti1Image(img_np, np.eye(4))
         lab_nii = Nifti1Image(lab_np, np.eye(4))
-        # save output image and label map under SynthSeg/generated_examples
+
+        # Save as .nii.gz files
+        nib.save(img_nii, os.path.join(output_dir, f"batch_{i}_img.nii.gz"))
+        nib.save(lab_nii, os.path.join(output_dir, f"batch_{i}_lab.nii.gz"))
         easybar.print_progress(i, len(loader))
 
 
