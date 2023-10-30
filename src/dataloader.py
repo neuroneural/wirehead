@@ -1,3 +1,6 @@
+import sys
+sys.path.append('data/users1/mdoan4/wirehead/utils/')
+
 from datetime import datetime 
 import os
 import easybar

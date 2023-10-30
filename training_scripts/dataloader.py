@@ -72,9 +72,7 @@ def my_collate_fn(batch):
     return torch.tensor(img), torch.tensor(lab)
 
 # Dataloading with wirehead 
-# Customize the dataloader here, num samples will tell it how many
-# samples to fetch
-tdataset = wh.wirehead_dataloader_v3(transform=my_transform, num_samples = 10)
+tdataset = wh.wirehead_dataloader_v3(transform=my_transform, num_samples = 1000)
 tsampler= (
         MBatchSampler(tdataset)
         )
@@ -86,31 +84,16 @@ tdataloader = BatchPrefetchLoaderWrapper(
             # Wirehead: Temporary change for debugging
             pin_memory=True,
             #worker_init_fn=create_client,
-            num_workers=1,
-            ),
+            num_workers=1,),
         num_prefetches=1 
         )
+
+wirehead_latency = wh.time_between_calls()
 for loader in [tdataloader]:
     for i, batch in enumerate(loader):
-        output_dir = "../samples/"
-# Create the directory if it doesn't exist
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        im, lab = batch
-        img_np = img.cpu().numpy()
-        lab_np = lab.cpu().numpy()
-
-        # Create Nifti images
-        img_nii = Nifti1Image(img_np, np.eye(4))
-        lab_nii = Nifti1Image(lab_np, np.eye(4))
-
-        # Save as .nii.gz files
-        nib.save(img_nii, os.path.join(output_dir, f"batch_{i}_img.nii.gz"))
-        nib.save(lab_nii, os.path.join(output_dir, f"batch_{i}_lab.nii.gz"))
+        next(wirehead_latency)
         easybar.print_progress(i, len(loader))
+        print(next(wirehead_latency))
 
-
-
-print("Dataloader: Finished executing successfully")
+print("Dataloader: Terminated")
 
