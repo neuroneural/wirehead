@@ -13,11 +13,3 @@
 * Built on Redis for extremely high throughput and for funky database manipulation techniques
 
 ---
-
-<h1>User guide</h1>
-- [ ] WIP WIP WIP WIP
-
----
-
-<h1>Roadmap</h1>
-- [ ] WIP WIP WIP WIP
