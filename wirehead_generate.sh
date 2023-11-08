@@ -5,9 +5,8 @@ LOCAL_IP='localhost'
 
 # Start python scripts
 trap 'pkill -P $$' EXIT
-source /data/users1/mdoan4/anaconda3/etc/profile.d/conda.sh
+source /data/users1/mdoan4/wirehead/envs/wirehead_generate/bin/activate
 
-conda activate wirehead_generate
 python /data/users1/mdoan4/wirehead/src/generate.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID  
 
 echo "Generator: Terminated"
