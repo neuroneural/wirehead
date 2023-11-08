@@ -72,7 +72,9 @@ def my_collate_fn(batch):
     return torch.tensor(img), torch.tensor(lab)
 
 # Dataloading with wirehead 
-tdataset = wh.wirehead_dataloader_v3(transform=my_transform, num_samples = 100)
+# Customize the dataloader here, num samples will tell it how many
+# samples to fetch
+tdataset = wh.wirehead_dataloader_v3(transform=my_transform, num_samples = 10)
 tsampler= (
         MBatchSampler(tdataset)
         )
@@ -90,8 +92,25 @@ tdataloader = BatchPrefetchLoaderWrapper(
         )
 for loader in [tdataloader]:
     for i, batch in enumerate(loader):
-        img, lab = batch
+        output_dir = "../samples/"
+# Create the directory if it doesn't exist
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        im, lab = batch
+        img_np = img.cpu().numpy()
+        lab_np = lab.cpu().numpy()
+
+        # Create Nifti images
+        img_nii = Nifti1Image(img_np, np.eye(4))
+        lab_nii = Nifti1Image(lab_np, np.eye(4))
+
+        # Save as .nii.gz files
+        nib.save(img_nii, os.path.join(output_dir, f"batch_{i}_img.nii.gz"))
+        nib.save(lab_nii, os.path.join(output_dir, f"batch_{i}_lab.nii.gz"))
         easybar.print_progress(i, len(loader))
 
-print("hi")
+
+
+print("Dataloader: Finished executing successfully")
 

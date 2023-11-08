@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PORT=6379
-LOCAL_IP='localhost'
+LOCAL_IP='arctrdagn019'
 
 # Start python scripts
 trap 'pkill -P $$' EXIT
