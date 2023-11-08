@@ -11,7 +11,7 @@ import argparse
 # Things that users should change
 DEFAULT_HOST = 'localhost'
 DEFAULT_PORT = 6379
-DEFAULT_CAP = 10 
+DEFAULT_CAP = 5 
 MANAGER_TIMEOUT = 5
 
 
