@@ -19,12 +19,13 @@ echo $LOCAL_IP
 # Start python scripts
 trap 'pkill -P $$' EXIT
 
-source /data/users1/mdoan4/wirehead/envs/wirehead_manager/bin/activate
+source /data/users1/mdoan4/anaconda3/etc/profile.d/conda.sh
 
-python /data/users1/mdoan4/wirehead/src/manager.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID #&
-#python /data/users1/mdoan4/wirehead/dev_src/dataloader.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID  
+conda activate wirehead_train
+python /data/users1/mdoan4/wirehead/dev_src/manager.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID &
+python /data/users1/mdoan4/wirehead/dev_src/fetch_samples.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID  
 
-echo "Server: Terminated or Failed"
+echo "murdered"
 # Cleanup 
 kill $REDIS_PID
 
