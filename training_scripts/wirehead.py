@@ -99,7 +99,7 @@ def hang_until_redis_is_loaded(r):
             print("Exiting.")
             break
             return
-class wirehead_dataloader_v3(Dataset):
+class Dataloader(Dataset):
     def __init__(self, transform, num_samples = int(1e6), fields=None, id="id", host=DEFAULT_HOST, port=DEFAULT_PORT):
         # Declare redis server to draw data from
         self.r = redis.Redis(host=host, port=port)
@@ -128,13 +128,12 @@ class wirehead_dataloader_v3(Dataset):
         while True:
             pickled_data = r.lindex(self.db_key, index)
             if pickled_data is not None:
-                #data = pickle.loads(pickled_data)
+                data = pickle.loads(pickled_data)
                 r.incr("wirehead_index")
                 index = int(r.get("wirehead_index"))
                 if index > DEFAULT_CAP:
                     index = 0
                     r.set("wirehead_index", 0)
-                data=(1,0)
                 return self.transform(data[0]), self.transform(data[1])
             else:
                 time.sleep(DATALOADER_SLEEP_TIME)

@@ -72,7 +72,7 @@ def my_collate_fn(batch):
     return torch.tensor(img), torch.tensor(lab)
 
 # Dataloading with wirehead 
-tdataset = wh.Dataloader(transform=my_transform, host='localhost', num_samples = 100)
+tdataset = wh.Dataloader(transform=my_transform, num_samples = 100)
 tsampler= (
         MBatchSampler(tdataset)
         )
@@ -91,6 +91,11 @@ tdataloader = BatchPrefetchLoaderWrapper(
 for loader in [tdataloader]:
     for i, batch in enumerate(loader):
         img, lab = batch
+
+        labels_img = torch.unique(img.view(-1)).size(0)
+        labels_lab= torch.unique(lab.view(-1)).size(0)
+
+        print(labels_img, labels_lab)
         easybar.print_progress(i, len(loader))
 
 print("hi")
