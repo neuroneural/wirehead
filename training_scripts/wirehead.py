@@ -9,7 +9,7 @@ import random
 from datetime import datetime, timedelta
 
 # Things that users should change
-DEFAULT_HOST = 'localhost'
+DEFAULT_HOST = 'arctrdagn019'
 DEFAULT_PORT = 6379
 DEFAULT_CAP = 1000 
 MANAGER_TIMEOUT = 1
@@ -285,7 +285,6 @@ def time_between_calls():
             time_diff = round(time_diff.total_seconds(), 4)
             yield f"{time_diff} seconds"
         last_time = current_time
-        yield None
 
 
 

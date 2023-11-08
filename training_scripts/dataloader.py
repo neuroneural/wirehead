@@ -72,9 +72,7 @@ def my_collate_fn(batch):
     return torch.tensor(img), torch.tensor(lab)
 
 # Dataloading with wirehead 
-# Customize the dataloader here, num samples will tell it how many
-# samples to fetch
-tdataset = wh.wirehead_dataloader_v3(transform=my_transform, num_samples = 10)
+tdataset = wh.wirehead_dataloader_v3(transform=my_transform, num_samples = 1000)
 tsampler= (
         MBatchSampler(tdataset)
         )
@@ -92,6 +90,7 @@ tdataloader = BatchPrefetchLoaderWrapper(
         )
 for loader in [tdataloader]:
     for i, batch in enumerate(loader):
+
         output_dir = "../samples/"
 # Create the directory if it doesn't exist
         if not os.path.exists(output_dir):
@@ -110,7 +109,5 @@ for loader in [tdataloader]:
         nib.save(lab_nii, os.path.join(output_dir, f"batch_{i}_lab.nii.gz"))
         easybar.print_progress(i, len(loader))
 
-
-
-print("Dataloader: Finished executing successfully")
+print("hi")
 
