@@ -260,9 +260,9 @@ class CustomRunner(dl.Runner):
                 worker_init_fn=self.funcs["createclient"], #modified 
                 persistent_workers=True,
                 prefetch_factor=3,
-                num_workers=1, #modified
+                num_workers=3, #modified
             ),
-            num_prefetches=1, #modified
+            num_prefetches=12, #modified
         )
 
         return {"train": tdataloader}
