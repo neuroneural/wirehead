@@ -5,12 +5,11 @@ import pickle
 import sys
 import random
 import argparse
+import numpy as np 
 
 sys.path.append('/data/users1/mdoan4/wirehead/synthseg')
 from ext.lab2im import utils
 from SynthSeg.brain_generator import BrainGenerator
-
-# todo: Make this stuff dynamic somehow, mb just import a class from wirehead or something
 
 DEFAULT_HOST = 'localhost'
 DEFAULT_PORT = 6379
@@ -20,6 +19,7 @@ working VEWY HAWD to fix this!"""
 PATH_TO_DATA = "/data/users1/mdoan4/wirehead/synthseg/data/training_label_maps/"
 DATA_FILES = ["training_seg_01.nii.gz",  "training_seg_02.nii.gz",  "training_seg_03.nii.gz",  "training_seg_04.nii.gz",  "training_seg_05.nii.gz",  "training_seg_06.nii.gz",  "training_seg_07.nii.gz",  "training_seg_08.nii.gz",  "training_seg_09.nii.gz",  "training_seg_10.nii.gz",  "training_seg_11.nii.gz",  "training_seg_12.nii.gz",  "training_seg_13.nii.gz",  "training_seg_14.nii.gz",  "training_seg_15.nii.gz", "training_seg_16.nii.gz", "training_seg_17.nii.gz", "training_seg_18.nii.gz","training_seg_19.nii.gz", "training_seg_20.nii.gz",]
 
+# Redis connection and queue handling functions
 def get_queue_len(host = DEFAULT_HOST, port = DEFAULT_PORT):
     try:
         r = redis.Redis(host= DEFAULT_HOST, port=DEFAULT_PORT, db=0)
@@ -29,8 +29,6 @@ def get_queue_len(host = DEFAULT_HOST, port = DEFAULT_PORT):
 def quantize_to_uint8(tensor):
     tensor = ((tensor - tensor.min())/(tensor.max() - tensor.min*())*255).round()#Normalize
     return tensor.astype('uint8') # convert to uint8
-
-
 def lock_db(r, lock_name, timeout=10):
     while True:
         if r.setnx(lock_name, 1):
@@ -49,9 +47,6 @@ def attempt_redis_connection(host, port):
             print("Generator: Terminating at Redis loading.")
             break
             return None 
-
-
-
 def hang_until_redis_is_loaded(r):
     while (True):
         try:
@@ -66,6 +61,25 @@ def hang_until_redis_is_loaded(r):
             break
             return None 
 
+# Sample preprocessing functions
+def convert_to_contiguous_labels(lab):
+    "Convert unique labels into range [0..52]"
+    mapping = {
+             0: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 8: 6, 10: 7, 11: 8, 12: 9, 13: 10, 14: 11,
+             15: 12, 16: 13, 17: 14, 18: 15, 24: 16, 25: 17, 26: 18, 28: 19, 30: 20, 41: 21,
+             42: 22, 43: 23, 44: 24, 46: 25, 47: 26, 49: 27, 50: 28, 51: 29, 52: 30, 53: 31,
+             54: 32, 57: 33, 58: 34, 60: 35, 62: 36, 85: 37, 136: 38, 137: 39, 163: 40,
+             164: 41, 502: 42, 506: 43, 507: 44, 508: 45, 509: 46, 511: 47, 512: 48,
+             514: 49, 515: 50, 516: 51, 530: 52}
+    vectorized_map = np.vectorize(lambda lab: mapping.get(lab, -1))  # -1 or any default value for unmapped entries
+    return vectorized_map(lab)
+
+def preprocess_image(img, qmin=0.01, qmax=0.99):
+    """Unit interval preprocessing"""
+    qmin_value = np.quantile(img, qmin)
+    qmax_value = np.quantile(img, qmax)
+    img = (img - qmin_value) / (qmax_value - qmin_value)
+    return img
 
 
 if __name__ == '__main__':
@@ -86,15 +100,19 @@ if __name__ == '__main__':
 
     while(True):
         start_time = time.time()
-        im, lab = brain_generator.generate_brain()
+        img, lab = brain_generator.generate_brain()
         pickle_time = time.time()
-        package = (im,lab)
+        package = (
+                preprocess_image(img),
+                convert_to_contiguous_labels(lab)
+                )
         package_bytes = pickle.dumps(package)
-        print(time.time())
-        print(f"The pickling took {time.time() - pickle_time}")
-
-        # Push to db1
-        print(f"The generation took {time.time() - start_time}")
+        print(f"""
+        {time.time()}
+        ----------------------------------
+        The pickling took {time.time() - pickle_time}
+        The generation took {time.time() - start_time}
+        """)
         lock_name = 'swap_lock'
         locked = lock_db(r, lock_name = lock_name)
         if locked:
@@ -106,5 +124,4 @@ if __name__ == '__main__':
                 r.delete(lock_name)
 
 
-        print('----------------------------------')
 
