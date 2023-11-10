@@ -64,15 +64,12 @@ def hang_until_redis_is_loaded(r):
 # Sample preprocessing functions
 def convert_to_contiguous_labels(lab):
     "Convert unique labels into range [0..52]"
-    mapping = {
-             0: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 8: 6, 10: 7, 11: 8, 12: 9, 13: 10, 14: 11,
-             15: 12, 16: 13, 17: 14, 18: 15, 24: 16, 25: 17, 26: 18, 28: 19, 30: 20, 41: 21,
-             42: 22, 43: 23, 44: 24, 46: 25, 47: 26, 49: 27, 50: 28, 51: 29, 52: 30, 53: 31,
-             54: 32, 57: 33, 58: 34, 60: 35, 62: 36, 85: 37, 136: 38, 137: 39, 163: 40,
-             164: 41, 502: 42, 506: 43, 507: 44, 508: 45, 509: 46, 511: 47, 512: 48,
-             514: 49, 515: 50, 516: 51, 530: 52}
-    vectorized_map = np.vectorize(lambda lab: mapping.get(lab, -1))  # -1 or any default value for unmapped entries
-    return vectorized_map(lab)
+    label_to_int = {0: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 8: 6, 10: 7, 11: 8, 12: 9, 13: 10, 14: 11, 15: 12, 16: 13, 17: 14, 18: 15, 24: 16, 25: 17, 26: 18, 28: 19, 30: 20, 41: 21, 42: 22, 43: 23, 44: 24, 46: 25, 47: 26, 49: 27, 50: 28, 51: 29, 52: 30, 53: 31, 54: 32, 57: 33, 58: 34, 60: 35, 62: 36, 72: 37, 85: 38, 136: 39, 137: 40, 163: 41, 164: 42, 502: 43, 506: 44, 507: 45, 508: 46, 509: 47, 511: 48, 512: 49, 514: 50, 515: 51, 516: 52, 530: 53}
+    # Vectorized mapping of original labels to contiguous range
+    vectorized_map = np.vectorize(lambda x: label_to_int.get(x, -1))  # -1 as default for unmapped labels
+    lab = vectorized_map(lab)
+    print(np.unique(lab))
+    return lab.astype(np.uint8)
 
 def preprocess_image(img, qmin=0.01, qmax=0.99):
     """Unit interval preprocessing"""

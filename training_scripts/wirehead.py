@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 # Things that users should change
 DEFAULT_HOST = 'arctrdagn019'
 DEFAULT_PORT = 6379
-DEFAULT_CAP = 1000 
+DEFAULT_CAP = 5 
 MANAGER_TIMEOUT = 1
 
 
@@ -126,7 +126,7 @@ class Dataloader(Dataset):
             r.set("wirehead_index", 0)
             index = 0
         while True:
-            pickled_data = r.lindex(self.db_key, index)
+            pickled_data = r.lindex(self.db_key, int(index))
             if pickled_data is not None:
                 data = pickle.loads(pickled_data)
                 r.incr("wirehead_index")
