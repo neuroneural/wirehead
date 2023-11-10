@@ -91,11 +91,10 @@ tdataloader = BatchPrefetchLoaderWrapper(
 for loader in [tdataloader]:
     for i, batch in enumerate(loader):
         img, lab = batch
+        labels_img = torch.unique(img.view(-1))
+        labels_lab= torch.unique(lab.view(-1))
 
-        labels_img = torch.unique(img.view(-1)).size(0)
-        labels_lab= torch.unique(lab.view(-1)).size(0)
-
-        print(labels_img, labels_lab)
+        print(labels_lab)
         easybar.print_progress(i, len(loader))
 
 print("hi")
