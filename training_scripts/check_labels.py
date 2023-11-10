@@ -67,7 +67,7 @@ def my_transform(x):
 def my_collate_fn(batch):
     # Wirehead always fetches with batch = 1
     item = batch[0]
-    img = item[0] 
+    img = item[0]
     lab = item[1] 
     return torch.tensor(img), torch.tensor(lab)
 
@@ -93,8 +93,10 @@ for loader in [tdataloader]:
         img, lab = batch
         labels_img = torch.unique(img.view(-1))
         labels_lab= torch.unique(lab.view(-1))
-
+        print(labels_img[0], labels_img[-1])
         print(labels_lab)
+        print(f"Image has dtype {img.dtype}")
+        print(f"Label has dtype {lab.dtype}")
         easybar.print_progress(i, len(loader))
 
 print("hi")

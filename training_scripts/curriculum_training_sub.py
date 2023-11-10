@@ -187,27 +187,77 @@ class CustomRunner(dl.Runner):
         # Wirehead code sub in####
 
         # Basic collate and transform functions that do pretty much nothing
+
+
+        def mcollate(mlist, labelname="sublabel", cubesize=256):
+            mdict = list2dict(mlist[0])
+            data = []
+            labels = []
+            data = torch.empty(
+                len(mdict), cubesize, cubesize, cubesize, requires_grad=False, dtype=torch.float
+            )
+            labels = torch.empty(
+                len(mdict), cubesize, cubesize, cubesize, requires_grad=False, dtype=torch.long
+            )
+            cube = np.empty(shape=(cubesize, cubesize, cubesize))
+            label = np.empty(shape=(cubesize, cubesize, cubesize))
+            for i, subj in enumerate(mdict):
+                for sub in mdict[subj]:
+                    x, y, z = sub["coords"]
+                    sz = sub["subdata"].shape[0]
+                    cube[x : x + sz, y : y + sz, z : z + sz] = sub["subdata"]
+                    label[x : x + sz, y : y + sz, z : z + sz] = sub[labelname]
+                cube1 = preprocess_image(torch.from_numpy(cube).float())
+                label1 = torch.from_numpy(label).long()
+                data[i, :, :, :] = cube1
+                labels[i, :, :, :] = label1
+            del cube
+            del label
+            return data.unsqueeze(1), labels
+        def rcollate(batch, cubesize=256):
+            data = []
+            labels = []
+            data = torch.empty(
+                len(batch), cubesize, cubesize, cubesize, requires_grad=False, dtype=torch.float
+            )
+            labels = torch.empty(
+                len(batch), cubesize, cubesize, cubesize, requires_grad=False, dtype=torch.long
+            )
+
+            items = batch[0] # Wirehead will only fetch with batchsize 1
+            cube1 = torch.from_numpy(items[0]).float()
+            label1 = torch.from_numpy(items[1]).long()
+            data[0, :, :, :] = cube1
+            labels[0, :, :, :] = label1
+            return data.unsqueeze(1), labels
+
+
+            
         def my_transform(x):
             return x
         def my_collate_fn(batch):
             item = batch[0]
             img = item[0]
             lab = item[1]
-            return torch.stack([torch.tensor(img), torch.tensor(lab)], dim=0)
+            # Add channel dimension (assuming single-channel data)
+            img = torch.tensor(img)[None, ...]  # Shape becomes (1, 256, 256, 256)
+            lab = torch.tensor(lab)[None, ...]  # Shape becomes (1, 256, 256, 256)
+            # Stack along a new batch dimension
+            batched_data = torch.stack([img, lab], dim=0)  # Shape becomes (2, 1, 256, 256, 256)
+            return batched_data
 
         tdataset = wh.Dataloader(transform=my_transform, num_samples = 100) #modified
 
         tsampler = (
             MBatchSampler(tdataset, batch_size=1)
-        ) # modified
-
+        )
         tdataloader = BatchPrefetchLoaderWrapper(
             DataLoader(
                 tdataset,
                 #sampler=tsampler,
-                collate_fn=my_collate_fn, #modifed
+                collate_fn=rcollate, #modifed
                 pin_memory=True,
-                #worker_init_fn=self.funcs["createclient"], #modified 
+                worker_init_fn=self.funcs["createclient"], #modified 
                 persistent_workers=True,
                 prefetch_factor=3,
                 num_workers=1, #modified
