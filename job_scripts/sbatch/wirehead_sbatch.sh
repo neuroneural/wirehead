@@ -10,6 +10,6 @@ fi
 NODE_NAME="$1"
 
 # Call sbatch scripts with substituted node name
-sbatch <(sed "s/arctrdagn041/$NODE_NAME/g" ./slurm_generate_wirehead.sh)
-sbatch <(sed "s/arctrdagn041/$NODE_NAME/g" ./slurm_server_wirehead.sh)
-sbatch <(sed "s/arctrdagn041/$NODE_NAME/g" ./slurm_train_wirehead.sh)
+sbatch <(sed "s/arctrdagn041/$NODE_NAME/g" ./generate_sbatch.sh)
+sbatch <(sed "s/arctrdagn041/$NODE_NAME/g" ./server_sbatch.sh)
+sbatch <(sed "s/arctrdagn041/$NODE_NAME/g" ./train_sbatch.sh)
