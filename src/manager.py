@@ -5,15 +5,7 @@ import pickle
 import sys
 import random
 import argparse
-
-
-
-# Things that users should change
-DEFAULT_HOST = 'localhost'
-DEFAULT_PORT = 6379
-DEFAULT_CAP = 5 
-MANAGER_TIMEOUT = 5
-
+from wirehead_defaults import *
 
 def get_queue_len(r):
     try:

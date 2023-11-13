@@ -10,7 +10,7 @@ trap 'pkill -P $$' EXIT
 source /data/users1/mdoan4/anaconda3/etc/profile.d/conda.sh
 conda activate wirehead_train
 echo "conda activated successfully"
-python /data/users1/mdoan4/wirehead/training_scripts/dataloader.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID  
+python /data/users1/mdoan4/wirehead/training_scripts/curriculum_training_sub.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID  
 
 echo "test was successful"
 #

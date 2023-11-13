@@ -6,7 +6,7 @@
 #SBATCH --mem=10g
 #SBATCH --output=./log/generate_output.log
 #SBATCH --error=./log/generate_error.log
-#SBATCH --time=01:00:00
+#SBATCH --time=02:00:00
 #SBATCH -p qTRDGPU
 #SBATCH -A psy53c17
 
