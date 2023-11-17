@@ -12,9 +12,6 @@ unfortunately
 # Things that users should change
 DEFAULT_HOST = 'arctrdagn019'
 DEFAULT_PORT = 6379
-DEFAULT_CAP = 1000 
-MANAGER_TIMEOUT = 1
-
 
 # Things that users should definitely NOT change
 ERROR_STRING= """Oppsie Woopsie! Uwu Redwis made a shwuky wucky!! A widdle
@@ -27,10 +24,17 @@ DATA_FILES = [
         "training_seg_03.nii.gz",  
         "training_seg_04.nii.gz",  
         "training_seg_05.nii.gz", 
-        "training_seg_06.nii.gz",  "training_seg_07.nii.gz",  "training_seg_08.nii.gz",  "training_seg_09.nii.gz",  "training_seg_10.nii.gz",  "training_seg_11.nii.gz",  "training_seg_12.nii.gz",  "training_seg_13.nii.gz",  "training_seg_14.nii.gz",  "training_seg_15.nii.gz", "training_seg_16.nii.gz", "training_seg_17.nii.gz", "training_seg_18.nii.gz","training_seg_19.nii.gz", "training_seg_20.nii.gz",]
+        "training_seg_06.nii.gz",  "training_seg_07.nii.gz",  "training_seg_08.nii.gz",  "training_seg_09.nii.gz",  "training_seg_10.nii.gz",  "training_seg_11.nii.gz",  "training_seg_12.nii.gz",  "training_seg_13.nii.gz",  "training_seg_14.nii.gz",  "training_seg_15.nii.gz", "training_seg_16.nii.gz", "training_seg_17.nii.gz", "training_seg_18.nii.gz","training_seg_19.nii.gz", "training_seg_20.nii.gz",] # this is ugly, need to fix later
 
 # Stuff for dataloader
 MAX_RETRIES = 10
 DATALOADER_SLEEP_TIME = 0.5
+
+# Stuff for generator
+GENERATOR_LENGTH = 100
+
+# Stuff for manager
+MANAGER_TIMEOUT = 1
+DEFAULT_CAP = 500 # When to rotate the databases 
 
 

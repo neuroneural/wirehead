@@ -91,7 +91,6 @@ tdataloader = BatchPrefetchLoaderWrapper(
 for loader in [tdataloader]:
     for i, batch in enumerate(loader):
         img, lab = batch
-        easybar.print_progress(i, len(loader))
 
 print("hi")
 
