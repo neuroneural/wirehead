@@ -191,32 +191,6 @@ class CustomRunner(dl.Runner):
 
         # Basic collate and transform functions that do pretty much nothing
 
-
-        def mcollate(mlist, labelname="sublabel", cubesize=256):
-            mdict = list2dict(mlist[0])
-            data = []
-            labels = []
-            data = torch.empty(
-                len(mdict), cubesize, cubesize, cubesize, requires_grad=False, dtype=torch.float
-            )
-            labels = torch.empty(
-                len(mdict), cubesize, cubesize, cubesize, requires_grad=False, dtype=torch.long
-            )
-            cube = np.empty(shape=(cubesize, cubesize, cubesize))
-            label = np.empty(shape=(cubesize, cubesize, cubesize))
-            for i, subj in enumerate(mdict):
-                for sub in mdict[subj]:
-                    x, y, z = sub["coords"]
-                    sz = sub["subdata"].shape[0]
-                    cube[x : x + sz, y : y + sz, z : z + sz] = sub["subdata"]
-                    label[x : x + sz, y : y + sz, z : z + sz] = sub[labelname]
-                cube1 = preprocess_image(torch.from_numpy(cube).float())
-                label1 = torch.from_numpy(label).long()
-                data[i, :, :, :] = cube1
-                labels[i, :, :, :] = label1
-            del cube
-            del label
-            return data.unsqueeze(1), labels
         def rcollate(batch, cubesize=256):
             data = []
             labels = []
@@ -249,7 +223,7 @@ class CustomRunner(dl.Runner):
             batched_data = torch.stack([img, lab], dim=0)  # Shape becomes (2, 1, 256, 256, 256)
             return batched_data
 
-        tdataset = wh.Dataloader(transform=my_transform, num_samples = 1000) #modified
+        tdataset = wh.Dataloader(host='localhost',transform=my_transform, num_samples = 1000) #modified
 
         tsampler = (
             MBatchSampler(tdataset, batch_size=1)

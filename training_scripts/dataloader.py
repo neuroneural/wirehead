@@ -34,6 +34,8 @@ from mongoslabs.mongoloader import (
 
 
 # Wirehead imports
+import sys
+sys.path.append('/data/users1/mdoan4/wirehead/src')
 import wirehead as wh
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:100'
@@ -61,6 +63,7 @@ n_classes = 104
 image_path = "/data/users2/splis/data/enmesh2/data/t1_c.nii.gz"
 
 
+
 # Temp functions
 def my_transform(x):
     return x
@@ -72,7 +75,7 @@ def my_collate_fn(batch):
     return torch.tensor(img), torch.tensor(lab)
 
 # Dataloading with wirehead 
-tdataset = wh.Dataloader(transform=my_transform, host='localhost', num_samples = 100)
+tdataset = wh.whDataloader(transform=my_transform, host='localhost', num_samples = 100)
 tsampler= (
         MBatchSampler(tdataset)
         )
@@ -91,6 +94,7 @@ tdataloader = BatchPrefetchLoaderWrapper(
 for loader in [tdataloader]:
     for i, batch in enumerate(loader):
         img, lab = batch
+        easybar.print_progress(i, len(loader))
 
 print("hi")
 

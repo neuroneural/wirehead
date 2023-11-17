@@ -1,9 +1,3 @@
-# Wirehead imports
-import sys
-sys.path.append('/data/users1/mdoan4/wirehead/src')
-sys.path.append('/data/users1/mdoan4/wirehead/src/utils')
-import wirehead as wh
-
 from datetime import datetime
 import threading
 from typing import Dict
@@ -50,6 +44,9 @@ from mongoslabs.mongoloader import (
     MongoClient,
     mtransform,
 )
+
+# comment here
+import wirehead as wh
 
 # SEED = 0
 # utils.set_global_seed(SEED)
@@ -249,7 +246,7 @@ class CustomRunner(dl.Runner):
             batched_data = torch.stack([img, lab], dim=0)  # Shape becomes (2, 1, 256, 256, 256)
             return batched_data
 
-        tdataset = wh.Dataloader(transform=my_transform, num_samples = 1000) #modified
+        tdataset = wh.whDataloader(transform=my_transform, num_samples = 1000) #modified
 
         tsampler = (
             MBatchSampler(tdataset, batch_size=1)
