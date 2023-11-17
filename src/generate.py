@@ -14,16 +14,6 @@ from SynthSeg.brain_generator import BrainGenerator
 from wirehead_defaults import *
 
 # Redis connection and queue handling functions
-def get_queue_len(host = DEFAULT_HOST, port = DEFAULT_PORT):
-    try:
-        r = redis.Redis(host= DEFAULT_HOST, port=DEFAULT_PORT, db=0)
-        return r.llen('db0'), r.llen('db1')
-    except:
-        return -1, -1
-def quantize_to_uint8(tensor):
-    tensor = ((tensor - tensor.min())/(tensor.max() - tensor.min*())*255).round()#Normalize
-    return tensor.astype('uint8') # convert to uint8
-
 def push_redis(r, package_bytes):
     def lock_db(r, lock_name, timeout=10):
         """

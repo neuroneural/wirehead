@@ -5,32 +5,13 @@ import pickle
 import sys
 import random
 import argparse
+
 from wirehead_defaults import *
-
-def get_queue_len(r):
-    try:
-        return r.llen('db0'), r.llen('db1')
-    except:
-        return -1, -1
-
-def quantize_to_uint8(tensor):
-    min_val = tensor.min()
-    max_val = tensor.max()
-    if max_val == min_val:
-        return np.zeros_like(tensor, dtype='uint8')
-    tensor = ((tensor - min_val) / (max_val - min_val) * 255).round()
-    return tensor.astype('uint8')
-
-def lock_db(r, lock_name, timeout=10):
-    while True:
-        if r.setnx(lock_name, 1):
-            r.expire(lock_name, timeout)
-            return True
-        time.sleep(0.1)
+from wirehead_utils import connect_to_redis, get_redis_len, lock_redis
 
 def swap_db(r):
     lock_name = 'swap_lock'
-    locked = lock_db(r, lock_name = lock_name)
+    locked = lock_redis(r, lock_name = lock_name)
     if locked:
         try:
             pipe = r.pipeline()
@@ -44,31 +25,6 @@ def swap_db(r):
         finally:
             r.delete(lock_name)
 
-def push_db(r, package_bytes):
-    lock_name = 'swap_lock'
-    locked = lock_db(r, lock_name = lock_name)
-    if locked:
-        try:
-            r.rpush("db1", package_bytes)
-            if not r.exists("db0"):
-                r.rpush("db0", package_bytes)
-        finally:
-            r.delete(lock_name)
-
-def hang_until_redis_is_loaded(r):
-    while (True):
-        try:
-            r.rpush('status', bytes(True))
-            break
-            return
-        except redis.ConnectionError:
-            print(f"Redis is loading database...")
-            time.sleep(5)
-        except KeyboardInterrupt:
-            print("Exiting.")
-            break
-            return
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--ip", help="IP address for Redis")
@@ -80,18 +36,16 @@ if __name__ == '__main__':
     port = args.port if args.port else DEFAULT_PORT
     cap = int(args.cap) if args.cap else DEFAULT_CAP
 
-    r = redis.Redis(host=host, port = port)
-    print(f"Manager: Started successfully and is hosted on {host}")
-    hang_until_redis_is_loaded(r)
-    # Optional, in production should just append to database
+    r = connect_to_redis(host, port) 
     while True:
-        lendb0, lendb1 = get_queue_len(r)
+        lendb0, lendb1 = get_redis_len(r)
         print(time.time(), lendb0, lendb1)
         if lendb0 == -1:
             print("Error: db0 is empty")
+            # Hang util redis is alive
             while lendb0 == -1:
                 time.sleep(5)
-                lendb0, lendb1 = get_queue_len(r)
+                lendb0, lendb1 = get_redis_len(r)
                 continue
         # Swap databases whenever db1 is full
         if lendb1 > cap:
