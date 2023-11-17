@@ -7,7 +7,7 @@ export PATH=$PATH:/data/users1/mdoan4/wirehead/redis/redis-stable/src/
 echo $HOSTNAME >&2
 
 # Start redis
-/data/users1/mdoan4/wirehead/redis/redis-stable/src/redis-server /data/users1/mdoan4/wirehead/dev_src/redis.conf >> ./log/manager_wirehead_output.log 2>> ./log/manager_wirehead_errors.log &
+/data/users1/mdoan4/wirehead/redis/redis-stable/src/redis-server /data/users1/mdoan4/wirehead/src/utils/redis.conf >> ./log/manager_wirehead_output.log 2>> ./log/manager_wirehead_errors.log &
 REDIS_PID=$!
 
 sleep 2 
