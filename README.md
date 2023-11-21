@@ -11,6 +11,8 @@
 * Example usage can be found in /src/dataloader.py
 
 ```
+import wirehead as wh
+
 tdataset = wh.whDataloader(
     transform=my_transform,      # User defined transformations 
     host=hostname,               # Hostname currently running wirehead's backend redis server 
