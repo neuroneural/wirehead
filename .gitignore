@@ -1,4 +1,4 @@
 dump.rdb
 dev_src/
-cluster_ping.sh
-local_ping.sh
+./cluster_ping.sh
+./local_ping.sh
