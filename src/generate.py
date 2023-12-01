@@ -110,10 +110,10 @@ if __name__ == '__main__':
     port = args.port if args.port else DEFAULT_PORT
 
     r = connect_to_redis(host, port)
-
+    #TODO: reimplement the rotating samples stuff
+    brain_generator = create_generator()
     # Main generator loop
     while(True):
-        brain_generator = create_generator()
         for i in range(GENERATOR_LENGTH):
             # Start of generation
             generation_time = time.time()
