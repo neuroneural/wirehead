@@ -118,11 +118,10 @@ class Dataloader(Dataset):
 
 class whDataloader(Dataset):
     def __init__(self, transform, num_samples = int(1e6), fields=None, id="id", host=DEFAULT_HOST, port=DEFAULT_PORT):
-        # Declare redis server to draw data from
         self.r = redis.Redis(host=host, port=port)
         # This whole block of code to check for redis status, and prevents script prematurely terminating if
         # redis is either not active or if the rotating database isn't filled up
-        # Note: This dataloader will ALWAYS ATTEMPT to load, and will note terminate
+        # Note: This dataloader will ALWAYS ATTEMPT to load, and will not terminate
         hang_until_redis_is_loaded(self.r)
         lendb0, lendb1 = get_queue_len(self.r)
         # Hangs while database is not ready

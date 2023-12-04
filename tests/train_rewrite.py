@@ -1,19 +1,17 @@
-# Wirehead imports
+# This is a simplified rewrite to work with wirehead
+# for original implmeentation, please reference
+# curriculum_training_sub.py
+
 import sys
 sys.path.append('/data/users1/mdoan4/wirehead/src')
 sys.path.append('/data/users1/mdoan4/wirehead/src/utils')
 import wirehead as wh
 
 from datetime import datetime
-import threading
-from typing import Dict
 import os
-import easybar
-import shutil
-import pickle
 import sys
 import redis
-
+import shutil
 
 from catalyst import dl, metrics, utils
 from catalyst.data import BatchPrefetchLoaderWrapper
@@ -39,21 +37,6 @@ from torch.utils.data import DataLoader, Dataset, DistributedSampler
 
 from dice import faster_dice, DiceLoss
 from meshnet import enMesh_checkpoint, enMesh
-from mongoslabs.gencoords import CoordsGenerator
-
-from mongoslabs.mongoloader import (
-    create_client,
-    collate_subcubes,
-    mcollate,
-    MBatchSampler,
-    MongoDataset,
-    MongoClient,
-    mtransform,
-)
-
-# SEED = 0
-# utils.set_global_seed(SEED)
-# utils.prepare_cudnn(deterministic=False, benchmark=False) # crashes everything
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:100"
 os.environ["TORCH_DISTRIBUTED_DEBUG"] = "DETAIL"
@@ -63,46 +46,40 @@ os.environ["NCCL_P2P_LEVEL"] = "NVL"
 volume_shape = [256] * 3
 MAXSHAPE = 300
 
-LABELNOW = ["sublabel", "gwmlabel", "50label"][0]
 n_classes = [104, 3, 50][0]
 
-MONGOHOST = "10.245.12.58"  # "arctrdcn018.rs.gsu.edu"
-DBNAME = "MindfulTensors"
-COLLECTION = "MRNslabs"
-INDEX_ID = "subject"
-VIEWFIELDS = ["subdata", LABELNOW, "id", "subject"]
+WIREHEAD_HOST = "arctrdagn019"  
+WIREHEAD_PORT =  6379
+WIREHEAD_NUMSAMPLES = 100 # specifies how many samples to fetch from wirehead 
+
 config_file = "modelAE.json"
-
-# COLLECTION = "HCP"
-
 
 # CustomRunner – PyTorch for-loop decomposition
 # https://github.com/catalyst-team/catalyst#minimal-examples
 class CustomRunner(dl.Runner):
     def __init__(
-        self,
-        logdir: str,
-        wandb_project: str,
-        wandb_experiment: str,
-        model_path: str,
-        n_channels: int,
-        n_classes: int,
-        n_epochs: int,
-        optimize_inline: bool,
-        validation_percent: float,
-        onecycle_lr: float,
-        rmsprop_lr: float,
-        batch_size: int,
-        client_creator,
-        off_brain_weight: float,
-        prefetches=8,
-        volume_shape=[256] * 3,
-        subvolume_shape=[256] * 3,
-        db_host=MONGOHOST,
-        db_name=DBNAME,
-        db_collection=COLLECTION,
+            self,
+            logdir: str,
+            wandb_project: str,
+            wandb_experiment: str,
+            model_path: str,
+            n_channels: int,
+            n_classes: int,
+            n_epochs: int,
+            optimize_inline: bool,
+            validation_percent: float,
+            onecycle_lr: float,
+            rmsprop_lr: float,
+            batch_size: int,
+            off_brain_weight: float,
+            prefetches=8,
+            volume_shape=[256] * 3,
+            subvolume_shape=[256] * 3,
+            db_host=WIREHEAD_HOST,
+            db_port=WIREHEAD_PORT,
     ):
         super().__init__()
+        self._logdir = logdir
         self._logdir = logdir
         self.model_path = model_path
         self.wandb_project = wandb_project
@@ -112,19 +89,17 @@ class CustomRunner(dl.Runner):
         self.n_epochs = n_epochs
         self.optimize_inline = optimize_inline
         self.validation_percent = validation_percent
-        self.onecycle_lr = onecycle_lr
-        self.rmsprop_lr = rmsprop_lr
+        self.onecycle_lr = onecycle_lr # what is this
+        self.rmsprop_lr = rmsprop_lr # what is this
         self.db_host = db_host
-        self.db_name = db_name
-        self.db_collection = db_collection
+        self.db_port= db_port
         self.prefetches = prefetches
         self.shape = subvolume_shape[0]
         self.batch_size = batch_size
         self.off_brain_weight = off_brain_weight
-        self.client_creator = client_creator
         self.funcs = None
         self.collate = None
-
+    
     def get_engine(self):
         if torch.cuda.device_count() > 1:
             return dl.DistributedDataParallelEngine(
@@ -133,14 +108,13 @@ class CustomRunner(dl.Runner):
                 process_group_kwargs={"backend": "nccl"}
             )
         else:
-            return dl.GPUEngine()
-
+            return dl.GPUEngine()   
+        
     def get_loggers(self):
         return {
             "console": dl.ConsoleLogger(),
             "csv": dl.CSVLogger(logdir=self._logdir),
             # "tensorboard": dl.TensorboardLogger(logdir=self._logdir,
-            #                                     log_batch_metrics=True),
             "wandb": dl.WandbLogger(
                 project=self.wandb_project,
                 name=self.wandb_experiment,
@@ -151,11 +125,9 @@ class CustomRunner(dl.Runner):
     @property
     def stages(self):
         return ["train"]
-
     @property
     def num_epochs(self) -> int:
         return self.n_epochs
-
     @property
     def seed(self) -> int:
         """Experiment's seed for reproducibility."""
@@ -165,69 +137,37 @@ class CustomRunner(dl.Runner):
         return SEED
 
     def get_stage_len(self) -> int:
-        return self.n_epochs
-
+        return self.n_epochs   
+    
     def get_loaders(self):
-        self.funcs = {
-            "createclient": self.client_creator.create_client,
-            "mycollate": self.client_creator.mycollate,
-            "mycollate_full": self.client_creator.mycollate_full,
-            "mytransform": self.client_creator.mytransform,
-        }
-
-        self.collate = (
-            self.funcs["mycollate_full"]
-            if self.shape == 256
-            else self.funcs["mycollate"]
-        )
-
-        client = MongoClient("mongodb://" + self.db_host + ":27017")
-        db = client[self.db_name]
-        posts = db[self.db_collection]
-
-        # Wirehead code sub in####
-        def rcollate(batch, cubesize=256):
-            data = []
-            labels = []
-            data = torch.empty(
-                len(batch), cubesize, cubesize, cubesize, requires_grad=False, dtype=torch.float
-            )
-            labels = torch.empty(
-                len(batch), cubesize, cubesize, cubesize, requires_grad=False, dtype=torch.long
-            )
-
+        # 'r'functions are just functions designed to work with wirehead
+        def rcollate(batch, size=256): # 'size' is just 'cubesize'
+            data = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.float)
+            labels = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.long)
             items = batch[0] # Wirehead will only fetch with batchsize 1
-            cube1 = torch.from_numpy(items[0]).float()
-            label1 = torch.from_numpy(items[1]).long()
-            data[0, :, :, :] = cube1
-            labels[0, :, :, :] = label1
+            data[0, :, :, :] = torch.from_numpy(items[0]).float()
+            labels[0, :, :, :] = torch.from_numpy(items[1]).long()
             return data.unsqueeze(1), labels
 
-
-            
-        def my_transform(x):
+        def rtransform(x):
             return x
-        tdataset = wh.Dataloader(transform=my_transform, num_samples = 1000)
 
-        tsampler = (
-            MBatchSampler(tdataset, batch_size=1)
-        )
+        tdataset = wh.Dataloader(host=self.db_host,
+                                 port=self.db_port,
+                                 transform=rtransform,
+                                 num_samples=WIREHEAD_NUMSAMPLES)
         tdataloader = BatchPrefetchLoaderWrapper(
             DataLoader(
                 tdataset,
-                #sampler=tsampler,
-                collate_fn=rcollate, #modifed
+                collate_fn=rcollate,
                 pin_memory=True,
-                worker_init_fn=self.funcs["createclient"], #modified 
                 persistent_workers=True,
-                prefetch_factor=3,
-                num_workers=3, #modified
+                num_workers=3,
             ),
-            num_prefetches=12, #modified
+            num_prefetches=12,
         )
-
         return {"train": tdataloader}
-
+    
     def get_model(self):
         if self.shape > MAXSHAPE:
             model = enMesh(
@@ -252,10 +192,10 @@ class CustomRunner(dl.Runner):
         ).to(self.engine.device)
         criterion = torch.nn.CrossEntropyLoss(
             weight=class_weight, label_smoothing=0.01
-        )
+        ) # so we're using cross entropy loss, interesting
         # criterion = DiceLoss()
-        return criterion
-
+        return criterion       
+    
     def get_optimizer(self, model):
         # optimizer = torch.optim.RMSprop(model.parameters(), lr=self.rmsprop_lr)
         optimizer = torch.optim.Adam(model.parameters(), lr=self.rmsprop_lr)
@@ -283,6 +223,7 @@ class CustomRunner(dl.Runner):
             "tqdm": dl.TqdmCallback(),
         }
 
+    # these are catalyst functions
     def on_loader_start(self, runner):
         """
         Calls runner methods when the dataloader begins and adds
@@ -302,12 +243,11 @@ class CustomRunner(dl.Runner):
         for key in ["loss", "macro_dice", "learning rate"]:
             self.loader_metrics[key] = self.meters[key].compute()[0]
         super().on_loader_end(runner)
-
+    
     # model train/valid step
     def handle_batch(self, batch):
         # unpack the batch
         sample, label = batch
-
         # run model forward/backward pass
         if self.model.training:
             if self.shape > MAXSHAPE:
@@ -352,12 +292,10 @@ class CustomRunner(dl.Runner):
                 ),
             }
         )
-
         for key in ["loss", "macro_dice", "learning rate"]:
             self.meters[key].update(
                 self.batch_metrics[key].item(), self.batch_size
             )
-
         del sample
         del label
         del y_hat
@@ -365,71 +303,23 @@ class CustomRunner(dl.Runner):
         del labels
         del loss
 
-
-class ClientCreator:
-    def __init__(self, dbname, mongohost, label, volume_shape=[256] * 3):
-        self.dbname = dbname
-        self.mongohost = mongohost
-        self.volume_shape = volume_shape
-        self.label = label
-        self.subvolume_shape = None
-        self.collection = None
-        self.batch_size = None
-
-    def set_shape(self, shape):
-        self.subvolume_shape = shape
-        self.coord_generator = CoordsGenerator(
-            self.volume_shape, self.subvolume_shape
-        )
-
-    def set_collection(self, collection):
-        self.collection = collection
-
-    def set_batch_size(self, batch_size):
-        self.batch_size = batch_size
-
-    def create_client(self, x):
-        return create_client(
-            x,
-            dbname=self.dbname,
-            colname=self.collection,
-            mongohost=self.mongohost,
-        )
-
-    def mycollate(self, x):
-        return collate_subcubes(
-            x,
-            self.coord_generator,
-            labelname=self.label,
-            samples=self.batch_size,
-        )
-
-    def mycollate_full(self, x):
-        return mcollate(x, labelname=self.label)
-
-    def mytransform(self, x):
-        return mtransform(x, label=self.label)
-
-
 def assert_equal_length(*args):
     assert all(
         len(arg) == len(args[0]) for arg in args
     ), "Not all parameter lists have the same length!"
-
 
 if __name__ == "__main__":
     # hparams
     validation_percent = 0.1
     optimize_inline = False
 
+    #TODO: write better file fetching
     model_channels = 15
     model_label = "_startLARGE"
 
     model_path = f""
     logdir = f"./logs/tmp/curriculum_enmesh_{model_channels}channels_3_nodo/"
     wandb_project = f"curriculum_{model_channels}_sub"
-
-    client_creator = ClientCreator(DBNAME, MONGOHOST, LABELNOW)
 
     # set up parameters of your experiment
     cubesizes = [256] * 6
@@ -470,11 +360,6 @@ if __name__ == "__main__":
             + model_label
         )
 
-        # Set database parameters
-        client_creator.set_collection(COLLECTION)
-        client_creator.set_batch_size(batch_size)
-        client_creator.set_shape(subvolume_shape)
-
         runner = CustomRunner(
             logdir=logdir,
             wandb_project=wandb_project,
@@ -488,10 +373,8 @@ if __name__ == "__main__":
             onecycle_lr=onecycle_lr,
             rmsprop_lr=rmsprop_lr,
             batch_size=batch_size,
-            client_creator=client_creator,
             off_brain_weight=off_brain_weight,
             prefetches=n_fetch,
-            db_collection=COLLECTION,
             subvolume_shape=subvolume_shape,
         )
         runner.run()
@@ -500,5 +383,4 @@ if __name__ == "__main__":
             logdir + "/model.last.pth",
             logdir + "/model.last." + str(subvolume_shape[0]) + ".pth",
         )
-
         model_path = logdir + "model.last.pth"
