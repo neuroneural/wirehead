@@ -5,9 +5,6 @@ import os
 import easybar
 import shutil
 import pickle
-import sys
-import redis
-
 
 from catalyst import dl, metrics, utils
 from catalyst.data import BatchPrefetchLoaderWrapper
@@ -45,9 +42,6 @@ from mongoslabs.mongoloader import (
     mtransform,
 )
 
-# comment here
-import wirehead as wh
-
 # SEED = 0
 # utils.set_global_seed(SEED)
 # utils.prepare_cudnn(deterministic=False, benchmark=False) # crashes everything
@@ -55,13 +49,13 @@ import wirehead as wh
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:100"
 os.environ["TORCH_DISTRIBUTED_DEBUG"] = "DETAIL"
 os.environ["NCCL_SOCKET_IFNAME"] = "ib0"
-os.environ["NCCL_P2P_LEVEL"] = "NVL"
+# os.environ["NCCL_P2P_LEVEL"] = "NVL"
 
 volume_shape = [256] * 3
 MAXSHAPE = 300
 
-LABELNOW = ["sublabel", "gwmlabel", "50label"][0]
-n_classes = [104, 3, 50][0]
+LABELNOW = ["sublabel", "gwmlabel", "50label"][1]
+n_classes = [104, 3, 50][1]
 
 MONGOHOST = "10.245.12.58"  # "arctrdcn018.rs.gsu.edu"
 DBNAME = "MindfulTensors"
@@ -181,41 +175,65 @@ class CustomRunner(dl.Runner):
         client = MongoClient("mongodb://" + self.db_host + ":27017")
         db = client[self.db_name]
         posts = db[self.db_collection]
-#        num_examples = int(posts.find_one(sort=[(INDEX_ID, -1)])[INDEX_ID] + 1)
+        num_examples = int(posts.find_one(sort=[(INDEX_ID, -1)])[INDEX_ID] + 1)
 
-# remember here
-        # Wirehead code sub in####
-
-        # Basic collate and transform functions that do pretty much nothing
-        def my_transform(x):
-            return x
-        def my_collate_fn(batch):
-            item = batch[0]
-            img = item[0]
-            lab = item[1]
-            return torch.stack([torch.tensor(img), torch.tensor(lab)], dim=0)
-
-        tdataset = wh.Dataloader(transform=my_transform, num_samples = 100) #modified
+        tdataset = MongoDataset(
+            range(int((1 - self.validation_percent) * num_examples)),
+            self.funcs["mytransform"],
+            None,
+            id=INDEX_ID,
+            fields=VIEWFIELDS,
+        )
 
         tsampler = (
-            MBatchSampler(tdataset, batch_size=1)
-        ) # modified
+            DistributedSamplerWrapper(MBatchSampler(tdataset, batch_size=1))
+            if self.engine.is_ddp
+            else MBatchSampler(tdataset, batch_size=1)
+        )
 
         tdataloader = BatchPrefetchLoaderWrapper(
             DataLoader(
                 tdataset,
-                #sampler=tsampler,
-                collate_fn=my_collate_fn, #modifed
+                sampler=tsampler,
+                collate_fn=self.collate,
                 pin_memory=True,
-                #worker_init_fn=self.funcs["createclient"], #modified 
+                worker_init_fn=self.funcs["createclient"],
                 persistent_workers=True,
                 prefetch_factor=3,
-                num_workers=1, #modified
+                num_workers=self.prefetches,
             ),
-            num_prefetches=1, #modified
+            num_prefetches=self.prefetches,
         )
 
-        return {"train": tdataloader}
+        vdataset = MongoDataset(
+            range(
+                num_examples - int(self.validation_percent * num_examples),
+                num_examples,
+            ),
+            self.funcs["mytransform"],
+            None,
+            id=INDEX_ID,
+            fields=VIEWFIELDS,
+        )
+        vsampler = (
+            DistributedSamplerWrapper(MBatchSampler(vdataset, batch_size=1))
+            if self.engine.is_ddp
+            else MBatchSampler(vdataset, batch_size=1)
+        )
+        vdataloader = BatchPrefetchLoaderWrapper(
+            DataLoader(
+                vdataset,
+                sampler=vsampler,
+                pin_memory=True,
+                collate_fn=self.funcs["mycollate_full"],
+                worker_init_fn=self.funcs["createclient"],
+                persistent_workers=True,
+                num_workers=8,
+            ),
+            num_prefetches=8,
+        )
+
+        return {"train": tdataloader, "valid": vdataloader}
 
     def get_model(self):
         if self.shape > MAXSHAPE:
@@ -407,87 +425,6 @@ def assert_equal_length(*args):
 
 
 if __name__ == "__main__":
-    # hparams
-    validation_percent = 0.1
-    optimize_inline = False
-
-    model_channels = 15
-    model_label = "_startLARGE"
-
-    model_path = f""
-    logdir = f"./logs/tmp/curriculum_enmesh_{model_channels}channels_3_nodo/"
-    wandb_project = f"curriculum_{model_channels}_sub"
-
-    client_creator = ClientCreator(DBNAME, MONGOHOST, LABELNOW)
-
-    # set up parameters of your experiment
-    cubesizes = [256] * 6
-    batchsize = [1] * 6
-    weights = [0.5] * 2 + [1] * 4  # weights for the 0-class
-    collections = ["HCP", "MRNslabs"] * 3
-    epochs = [50] * 2 + [100] * 2 + [50, 10]
-    prefetches = [24] * 6
-    attenuates = [1] * 6
-
-    assert_equal_length(
-        cubesizes,
-        batchsize,
-        weights,
-        collections,
-        epochs,
-        prefetches,
-        attenuates,
-    )
-
-    start_experiment = 0
-    for experiment in range(len(cubesizes)):
-        COLLECTION = collections[experiment]
-        batch_size = batchsize[experiment]
-
-        off_brain_weight = weights[experiment]
-        subvolume_shape = [cubesizes[experiment]] * 3
-        onecycle_lr = rmsprop_lr = (
-            attenuates[experiment] * 0.1 * 8 * batch_size / 256
-        )
-        n_epochs = epochs[experiment]
-        n_fetch = prefetches[experiment]
-        wandb_experiment = (
-            f"{start_experiment + experiment:02} cube "
-            + str(subvolume_shape[0])
-            + " "
-            + COLLECTION
-            + model_label
-        )
-
-        # Set database parameters
-        client_creator.set_collection(COLLECTION)
-        client_creator.set_batch_size(batch_size)
-        client_creator.set_shape(subvolume_shape)
-
-        runner = CustomRunner(
-            logdir=logdir,
-            wandb_project=wandb_project,
-            wandb_experiment=wandb_experiment,
-            model_path=model_path,
-            n_channels=model_channels,
-            n_classes=n_classes,
-            n_epochs=n_epochs,
-            optimize_inline=optimize_inline,
-            validation_percent=validation_percent,
-            onecycle_lr=onecycle_lr,
-            rmsprop_lr=rmsprop_lr,
-            batch_size=batch_size,
-            client_creator=client_creator,
-            off_brain_weight=off_brain_weight,
-            prefetches=n_fetch,
-            db_collection=COLLECTION,
-            subvolume_shape=subvolume_shape,
-        )
-        runner.run()
-
-        shutil.copy(
-            logdir + "/model.last.pth",
-            logdir + "/model.last." + str(subvolume_shape[0]) + ".pth",
-        )
-
-        model_path = logdir + "model.last.pth"
+    for loader in [tdataloader]:
+        for i, batch in enumerate(loader):
+            print(batch)
