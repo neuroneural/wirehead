@@ -2,6 +2,8 @@
 import sys
 sys.path.append('/data/users1/mdoan4/wirehead/src')
 sys.path.append('/data/users1/mdoan4/wirehead/src/utils')
+sys.path.append('./src')
+sys.path.append('./src/utils')
 import wirehead as wh
 
 from datetime import datetime
@@ -71,7 +73,7 @@ DBNAME = "MindfulTensors"
 COLLECTION = "MRNslabs"
 INDEX_ID = "subject"
 VIEWFIELDS = ["subdata", LABELNOW, "id", "subject"]
-config_file = "modelAE.json"
+config_file = "./src/utils/modelAE.json"
 
 # COLLECTION = "HCP"
 
@@ -223,7 +225,7 @@ class CustomRunner(dl.Runner):
             batched_data = torch.stack([img, lab], dim=0)  # Shape becomes (2, 1, 256, 256, 256)
             return batched_data
 
-        tdataset = wh.Dataloader(host='localhost',transform=my_transform, num_samples = 1000) #modified
+        tdataset = wh.Dataloader_for_tests(host='localhost', port = 0,transform=my_transform, num_samples = 1000) #modified
 
         tsampler = (
             MBatchSampler(tdataset, batch_size=1)

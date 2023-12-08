@@ -170,9 +170,18 @@ def time_between_calls():
             yield f"{time_diff} seconds"
         last_time = current_time
 
+class Dataloader_for_tests(Dataset):
+    def __init__(self, host, port, transform, num_samples):
+        self.host = host
+        self.port = port
+        self.transform = transform
+        self.num_samples = num_samples
+    def __len__(self):
+        return self.num_samples 
 
-
-
-
-
+    def __getitem__(self, index):
+        time.sleep(1) 
+        tensor1 = np.zeros((256, 256, 256), dtype=np.float32)
+        tensor2 = np.zeros((256, 256, 256), dtype=np.uint8)
+        return self.transform(tensor1), self.transform(tensor2)
 

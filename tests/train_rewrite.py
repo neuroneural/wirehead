@@ -5,6 +5,11 @@
 import sys
 sys.path.append('/data/users1/mdoan4/wirehead/src')
 sys.path.append('/data/users1/mdoan4/wirehead/src/utils')
+sys.path.append('../src')
+sys.path.append('../src/utils')
+sys.path.append('./src')
+sys.path.append('./src/utils')
+
 import wirehead as wh
 
 from datetime import datetime
@@ -19,7 +24,6 @@ from catalyst.data.sampler import DistributedSamplerWrapper
 from catalyst.dl import DataParallelEngine, DistributedDataParallelEngine
 from catalyst.data.loader import ILoaderWrapper
 
-import ipdb
 import nibabel as nib
 import numpy as np
 
@@ -52,7 +56,7 @@ WIREHEAD_HOST = "arctrdagn019"
 WIREHEAD_PORT =  6379
 WIREHEAD_NUMSAMPLES = 100 # specifies how many samples to fetch from wirehead 
 
-config_file = "modelAE.json"
+config_file = "./src/utils/modelAE.json"
 
 # CustomRunner – PyTorch for-loop decomposition
 # https://github.com/catalyst-team/catalyst#minimal-examples
@@ -108,6 +112,7 @@ class CustomRunner(dl.Runner):
                 process_group_kwargs={"backend": "nccl"}
             )
         else:
+            print("cuda detected")
             return dl.GPUEngine()   
         
     def get_loggers(self):
@@ -152,7 +157,7 @@ class CustomRunner(dl.Runner):
         def rtransform(x):
             return x
 
-        tdataset = wh.Dataloader(host=self.db_host,
+        tdataset = wh.Dataloader_for_tests(host=self.db_host,
                                  port=self.db_port,
                                  transform=rtransform,
                                  num_samples=WIREHEAD_NUMSAMPLES)
@@ -162,9 +167,9 @@ class CustomRunner(dl.Runner):
                 collate_fn=rcollate,
                 pin_memory=True,
                 persistent_workers=True,
-                num_workers=3,
+                num_workers=1,
             ),
-            num_prefetches=12,
+            num_prefetches=1,
         )
         return {"train": tdataloader}
     
@@ -326,8 +331,8 @@ if __name__ == "__main__":
     batchsize = [1] * 6
     weights = [0.5] * 2 + [1] * 4  # weights for the 0-class
     collections = ["HCP", "MRNslabs"] * 3
-    epochs = [50] * 2 + [100] * 2 + [50, 10]
-    prefetches = [24] * 6
+    epochs = [1] * 2 + [1] * 2 + [1, 1]
+    prefetches = [1] * 6
     attenuates = [1] * 6
 
     assert_equal_length(
@@ -377,10 +382,13 @@ if __name__ == "__main__":
             prefetches=n_fetch,
             subvolume_shape=subvolume_shape,
         )
+        
         runner.run()
 
+        """
         shutil.copy(
             logdir + "/model.last.pth",
             logdir + "/model.last." + str(subvolume_shape[0]) + ".pth",
         )
         model_path = logdir + "model.last.pth"
+        """

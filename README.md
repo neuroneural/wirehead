@@ -49,6 +49,7 @@ conda install -c anaconda nccl
 pip install redis
 pip3 install pynvml
 pip3 install scipy
+pip3 install wandb
 ```
 The training setup has custom modifications to Catalyst, so you'll have to copy those in manually
 ```
