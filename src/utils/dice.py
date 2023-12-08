@@ -61,6 +61,10 @@ class DiceLoss(torch.nn.Module):
 
         return dice_loss.mean()
 
+def dice(x, y, fudge_factor=1e-8):
+    """Implementation of dice scores ofr 0/1 numy array"""
+    return 2 * torch.sum(x * y) / (torch.sum(x) + torch.sum(y) + fudge_factor)
+
 
 class DiceLossInt(torch.nn.Module):
     def __init__(self):
