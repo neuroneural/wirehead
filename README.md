@@ -39,3 +39,23 @@ tdataset = wh.whDataloader(
 * Starting wirehead's backend will flood 'db1' with generated samples. Once 'db1' is full, the key for the databases will be swapped, and it becomes 'db0'
 * The frontend dataloader will detect when this happens, and start serving samples for your training job. The samples pulled from db0 in a loop, going index by index
 * Wirehead's backend generation jobs can be scaled with as many nodes as one wishes, and the backend can be hosted off of infiniband for higher throughput
+
+## Instructions ##
+
+Create training environment
+```
+conda create wirehead_train python=3.9
+conda activate wireheaed_train
+pip3 install -U catalyst
+conda install -c anaconda nccl
+pip install redis
+pip3 install pynvml
+pip3 install scipy
+```
+The training setup has custom modifications to Catalyst, so you'll have to copy those in manually
+```
+cp /src/utils/torch.py <your_conda>/envs/torch2/lib/python3.9/site-packages/catalyst/utils
+```
+
+Creating the SynthSeg environment. Follow detailed instructions from the [SynthSeg repo](https://github.com/BBillot/SynthSeg) to install it as per your system setup.
+
