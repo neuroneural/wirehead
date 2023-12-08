@@ -1,12 +1,10 @@
-<h1>wirehead</h1>
+# wirehead #
 
-<div style="text-align:center; height:200px; overflow:hidden;">
-  <img src="assets/wirehead_oct6.jpeg" alt="Wirehead" style="width:500px; object-fit:crop;">
-</div>
+Caching system for synthetic fMRI data using Redis and SynthSeg 
 
 ---
 
-<h1>Usage</h1>
+## Usage ##
 
 * Example usage can be found in /src/dataloader.py
 
@@ -20,7 +18,7 @@ tdataset = wh.whDataloader(
 ```
 ---
 
-<h1>Description</h1>
+## Description ##
 
 * A dynamic data caching platform for low throughput synthetic data generation pipelines
 * Built for SynthSeg on ARCTIC Slurm cluster
@@ -28,7 +26,7 @@ tdataset = wh.whDataloader(
 
 ---
 
-<h1>How it works</h1>
+## How it works ##
 
 * Wirehead has 3 main components:
 - The backend server, which hosts the redis server and the server management logic
