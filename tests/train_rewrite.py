@@ -54,7 +54,7 @@ n_classes = [104, 3, 50][0]
 
 WIREHEAD_HOST = "arctrdagn019"  
 WIREHEAD_PORT =  6379
-WIREHEAD_NUMSAMPLES = 100 # specifies how many samples to fetch from wirehead 
+WIREHEAD_NUMSAMPLES = 10 # specifies how many samples to fetch from wirehead 
 
 config_file = "./src/utils/modelAE.json"
 
@@ -158,10 +158,10 @@ class CustomRunner(dl.Runner):
     def get_loaders(self):
         # 'r'functions are just functions designed to work with wirehead
         
-        rdataset = wh.Dataloader_for_tests(host=self.db_host,
-                                 port=self.db_port,
-                                 transform=rtransform,
-                                 num_samples=10)
+        rdataset = wh.whDataset(host=self.db_host,
+                                   port=self.db_port,
+                                   transform=rtransform,
+                                   num_samples=WIREHEAD_NUMSAMPLES)
 
         rsampler = DistributedSampler(rdataset) if torch.cuda.device_count() > 1 else None
 
@@ -390,10 +390,8 @@ if __name__ == "__main__":
         
         runner.run()
 
-        """
         shutil.copy(
             logdir + "/model.last.pth",
             logdir + "/model.last." + str(subvolume_shape[0]) + ".pth",
         )
         model_path = logdir + "model.last.pth"
-        """
