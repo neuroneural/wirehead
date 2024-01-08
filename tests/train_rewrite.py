@@ -54,9 +54,20 @@ n_classes = [104, 3, 50][0]
 
 WIREHEAD_HOST = "arctrdagn019"  
 WIREHEAD_PORT =  6379
-WIREHEAD_NUMSAMPLES = 100 # specifies how many samples to fetch from wirehead 
+WIREHEAD_NUMSAMPLES = 10 # specifies how many samples to fetch from wirehead 
 
 config_file = "./src/utils/modelAE.json"
+
+def rtransform(x):
+    return x
+def rcollate(batch, size=256): # 'size' is just 'cubesize'
+    data = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.float)
+    labels = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.long)
+    items = batch[0] # Wirehead will only fetch with batchsize 1
+    data[0, :, :, :] = torch.from_numpy(items[0]).float()
+    labels[0, :, :, :] = torch.from_numpy(items[1]).long()
+    return data.unsqueeze(1), labels
+
 
 # CustomRunner – PyTorch for-loop decomposition
 # https://github.com/catalyst-team/catalyst#minimal-examples
@@ -146,24 +157,18 @@ class CustomRunner(dl.Runner):
     
     def get_loaders(self):
         # 'r'functions are just functions designed to work with wirehead
-        def rcollate(batch, size=256): # 'size' is just 'cubesize'
-            data = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.float)
-            labels = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.long)
-            items = batch[0] # Wirehead will only fetch with batchsize 1
-            data[0, :, :, :] = torch.from_numpy(items[0]).float()
-            labels[0, :, :, :] = torch.from_numpy(items[1]).long()
-            return data.unsqueeze(1), labels
+        
+        rdataset = wh.whDataset(host=self.db_host,
+                                   port=self.db_port,
+                                   transform=rtransform,
+                                   num_samples=WIREHEAD_NUMSAMPLES)
 
-        def rtransform(x):
-            return x
+        rsampler = DistributedSampler(rdataset) if torch.cuda.device_count() > 1 else None
 
-        tdataset = wh.Dataloader_for_tests(host=self.db_host,
-                                 port=self.db_port,
-                                 transform=rtransform,
-                                 num_samples=WIREHEAD_NUMSAMPLES)
         tdataloader = BatchPrefetchLoaderWrapper(
             DataLoader(
-                tdataset,
+                rdataset,
+                sampler=rsampler,
                 collate_fn=rcollate,
                 pin_memory=True,
                 persistent_workers=True,
@@ -385,10 +390,8 @@ if __name__ == "__main__":
         
         runner.run()
 
-        """
         shutil.copy(
             logdir + "/model.last.pth",
             logdir + "/model.last." + str(subvolume_shape[0]) + ".pth",
         )
         model_path = logdir + "model.last.pth"
-        """
