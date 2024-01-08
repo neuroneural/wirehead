@@ -8,6 +8,7 @@ import sys
 import random
 from datetime import datetime, timedelta
 from wirehead_defaults import *
+from multiprocessing import Lock
 
 def get_queue_len(r):
     try:
@@ -75,87 +76,28 @@ def hang_until_redis_is_loaded(r):
             print("Exiting.")
             break
             return
-class Dataloader(Dataset):
-    def __init__(self, transform, num_samples = int(1e6), fields=None, id="id", host=DEFAULT_HOST, port=DEFAULT_PORT):
-        # Declare redis server to draw data from
-        self.r = redis.Redis(host=host, port=port)
-        # This whole block of code to check for redis status, and prevents script prematurely terminating if
-        # redis is either not active or if the rotating database isn't filled up
-        # Note: This dataloader will ALWAYS ATTEMPT to load, and will note terminate
-        hang_until_redis_is_loaded(self.r)
-        lendb0, lendb1 = get_queue_len(self.r)
-        # Hangs while database is not ready
-        while lendb0 < 2:
-            print('Dataloader: Database is currently empty, please wait') 
-            time.sleep(10)
-            lendb0, lendb1 = get_queue_len(self.r)
+
+class whDataset(Dataset):
+    def __init__(self, transform, num_samples=int(1e6), host=DEFAULT_HOST, port=DEFAULT_PORT):
         self.transform = transform
         self.db_key = 'db0'
         self.num_samples = num_samples
-
+        self.host=host
+        self.port=port
+        r = redis.Redis(host=self.host, port=self.port)
+        hang_until_redis_is_loaded(r)
     def __len__(self):
-        return self.num_samples 
+        return self.num_samples
 
     def __getitem__(self, index):
-        r = self.r
-        if not r.exists("wirehead_index"):
-            r.set("wirehead_index", 0)
-            index = 0
-        while True:
-            pickled_data = r.lindex(self.db_key, index)
-            if pickled_data is not None:
-                data = pickle.loads(pickled_data)
-                r.incr("wirehead_index")
-                index = int(r.get("wirehead_index"))
-                if index > DEFAULT_CAP:
-                    index = 0
-                    r.set("wirehead_index", 0)
-                return self.transform(data[0]), self.transform(data[1])
-            else:
-                time.sleep(DATALOADER_SLEEP_TIME)
-                r.set("wirehead_index", 0)
-                index = 0
-
-class whDataloader(Dataset):
-    def __init__(self, transform, num_samples = int(1e6), fields=None, id="id", host=DEFAULT_HOST, port=DEFAULT_PORT):
-        self.r = redis.Redis(host=host, port=port)
-        # This whole block of code to check for redis status, and prevents script prematurely terminating if
-        # redis is either not active or if the rotating database isn't filled up
-        # Note: This dataloader will ALWAYS ATTEMPT to load, and will not terminate
-        hang_until_redis_is_loaded(self.r)
-        lendb0, lendb1 = get_queue_len(self.r)
-        # Hangs while database is not ready
-        while lendb0 < 2:
-            print('Dataloader: Database is currently empty, please wait') 
-            time.sleep(10)
-            lendb0, lendb1 = get_queue_len(self.r)
-        self.transform = transform
-        self.db_key = 'db0'
-        self.num_samples = num_samples
-
-    def __len__(self):
-        return self.num_samples 
-
-    def __getitem__(self, index):
-        r = self.r
-        if not r.exists("wirehead_index"):
-            r.set("wirehead_index", 0)
-            index = 0
-        while True:
-            pickled_data = r.lindex(self.db_key, index)
-            if pickled_data is not None:
-                data = pickle.loads(pickled_data)
-                r.incr("wirehead_index")
-                index = int(r.get("wirehead_index"))
-                if index > DEFAULT_CAP:
-                    index = 0
-                    r.set("wirehead_index", 0)
-                return self.transform(data[0]), self.transform(data[1])
-            else:
-                time.sleep(DATALOADER_SLEEP_TIME)
-                r.set("wirehead_index", 0)
-                index = 0
-
+        r = redis.Redis(host=self.host, port=self.port)
+        index = index % r.llen(self.db_key)  # Use modular arithmetic to cycle through dataset
+        pickled_data = r.lindex(self.db_key, index)
+        if pickled_data is not None:
+            data = pickle.loads(pickled_data)
+            return self.transform(data[0]), self.transform(data[1])
+        else:
+            raise IndexError(f"Index {index} out of range")
 
 
 #-- Utils ---------------------------
@@ -176,10 +118,13 @@ class Dataloader_for_tests(Dataset):
         self.port = port
         self.transform = transform
         self.num_samples = num_samples
+        #self.lock = Lock()
     def __len__(self):
+        #with self.lock:
         return self.num_samples 
 
     def __getitem__(self, index):
+        #with self.lock:
         time.sleep(1) 
         tensor1 = np.zeros((256, 256, 256), dtype=np.float32)
         tensor2 = np.zeros((256, 256, 256), dtype=np.uint8)
