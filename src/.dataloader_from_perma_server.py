@@ -1,3 +1,8 @@
+# Wirehead imports
+import sys
+sys.path.append('/data/users1/mdoan4/wirehead/src/utils')
+import wirehead as wh
+
 from datetime import datetime 
 import os
 import easybar
@@ -33,8 +38,7 @@ from mongoslabs.mongoloader import (
 )
 
 
-# Wirehead imports
-import wirehead as wh
+
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:100'
 os.environ['TORCH_DISTRIBUTED_DEBUG'] = 'DETAIL'
@@ -67,12 +71,12 @@ def my_transform(x):
 def my_collate_fn(batch):
     # Wirehead always fetches with batch = 1
     item = batch[0]
-    img = item[0]
+    img = item[0] 
     lab = item[1] 
     return torch.tensor(img), torch.tensor(lab)
 
 # Dataloading with wirehead 
-tdataset = wh.Dataloader(transform=my_transform,host='arctrdcn019', num_samples = 100)
+tdataset = wh.whDataloader(transform=my_transform, num_samples = 100)
 tsampler= (
         MBatchSampler(tdataset)
         )
@@ -91,12 +95,6 @@ tdataloader = BatchPrefetchLoaderWrapper(
 for loader in [tdataloader]:
     for i, batch in enumerate(loader):
         img, lab = batch
-        labels_img = torch.unique(img.view(-1))
-        labels_lab= torch.unique(lab.view(-1))
-        print(labels_img[0], labels_img[-1])
-        print(labels_lab)
-        print(f"Image has dtype {img.dtype}")
-        print(f"Label has dtype {lab.dtype}")
         easybar.print_progress(i, len(loader))
 
 print("hi")

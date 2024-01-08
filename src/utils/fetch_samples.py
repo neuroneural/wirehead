@@ -15,11 +15,9 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset,DistributedSampler
 
-
 from dice import faster_dice
 from meshnet import MeshNet
-from mongoslabs.gencoords import CoordsGenerator
-from blendbatchnorm import fuse_bn_recursively
+from mongoslabs.gencoords import CoordsGenerator from blendbatchnorm import fuse_bn_recursively
 
 
 from mongoslabs.mongoloader import (
@@ -34,8 +32,6 @@ from mongoslabs.mongoloader import (
 
 
 # Wirehead imports
-import sys
-sys.path.append('/data/users1/mdoan4/wirehead/src')
 import wirehead as wh
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:100'
@@ -63,7 +59,6 @@ n_classes = 104
 image_path = "/data/users2/splis/data/enmesh2/data/t1_c.nii.gz"
 
 
-
 # Temp functions
 def my_transform(x):
     return x
@@ -75,7 +70,9 @@ def my_collate_fn(batch):
     return torch.tensor(img), torch.tensor(lab)
 
 # Dataloading with wirehead 
-tdataset = wh.whDataloader(transform=my_transform, host='localhost', num_samples = 100)
+# Customize the dataloader here, num samples will tell it how many
+# samples to fetch
+tdataset = wh.wirehead_dataloader_v3(transform=my_transform, num_samples = 10)
 tsampler= (
         MBatchSampler(tdataset)
         )
@@ -93,8 +90,25 @@ tdataloader = BatchPrefetchLoaderWrapper(
         )
 for loader in [tdataloader]:
     for i, batch in enumerate(loader):
-        img, lab = batch
+        output_dir = "../../.samples/"
+# Create the directory if it doesn't exist
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        im, lab = batch
+        img_np = img.cpu().numpy()
+        lab_np = lab.cpu().numpy()
+
+        # Create Nifti images
+        img_nii = Nifti1Image(img_np, np.eye(4))
+        lab_nii = Nifti1Image(lab_np, np.eye(4))
+
+        # Save as .nii.gz files
+        nib.save(img_nii, os.path.join(output_dir, f"batch_{i}_img.nii.gz"))
+        nib.save(lab_nii, os.path.join(output_dir, f"batch_{i}_lab.nii.gz"))
         easybar.print_progress(i, len(loader))
 
-print("hi")
+
+
+print("Dataloader: Finished executing successfully")
 
