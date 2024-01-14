@@ -7,7 +7,7 @@ import random
 import argparse
 import numpy as np 
 
-sys.path.append('/data/users1/mdoan4/wirehead/synthseg')
+sys.path.append('/data/users1/mdoan4/wirehead/dependencies/synthseg')
 from ext.lab2im import utils
 from SynthSeg.brain_generator import BrainGenerator
 

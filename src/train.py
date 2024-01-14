@@ -11,6 +11,7 @@ sys.path.append('./src')
 sys.path.append('./src/utils')
 
 import wirehead as wh
+from wirehead_defaults import DEFAULT_HOST, DEFAULT_PORT
 
 from datetime import datetime
 import os
@@ -42,18 +43,20 @@ from torch.utils.data import DataLoader, Dataset, DistributedSampler
 from dice import faster_dice, DiceLoss
 from meshnet import enMesh_checkpoint, enMesh
 
+
+
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:100"
 os.environ["TORCH_DISTRIBUTED_DEBUG"] = "DETAIL"
 os.environ["NCCL_SOCKET_IFNAME"] = "ib0"
-#os.environ["NCCL_P2P_LEVEL"] = "NVL"
+#os.environ["NCCL_P2P_LEVEL"] = "NVL" #comment this out for distributed training?
 
 volume_shape = [256] * 3
 MAXSHAPE = 300
 
 n_classes = [104, 3, 50][0]
 
-WIREHEAD_HOST = "arctrdagn019"  
-WIREHEAD_PORT =  6379
+WIREHEAD_HOST = DEFAULT_HOST # "arctrdagn019"  
+WIREHEAD_PORT = DEFAULT_PORT # 6379
 WIREHEAD_NUMSAMPLES = 10 # specifies how many samples to fetch from wirehead 
 
 config_file = "./src/utils/modelAE.json"

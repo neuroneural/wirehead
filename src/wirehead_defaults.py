@@ -14,10 +14,11 @@ DEFAULT_HOST = 'arctrdagn019'
 DEFAULT_PORT = 6379
 
 # Things that users should definitely NOT change
+PATH_TO_WIREHEAD="/data/users1/mdoan4/wirehead/"
 ERROR_STRING= """Oppsie Woopsie! Uwu Redwis made a shwuky wucky!! A widdle
 bwucko boingo! The code monkeys at our headquarters are
 working VEWY HAWD to fix this!"""
-PATH_TO_DATA = "/data/users1/mdoan4/wirehead/synthseg/data/training_label_maps/"
+PATH_TO_DATA = PATH_TO_WIREHEAD + "dependencies/synthseg/data/training_label_maps/"
 DATA_FILES = [
         "training_seg_01.nii.gz",  
         "training_seg_02.nii.gz",  
