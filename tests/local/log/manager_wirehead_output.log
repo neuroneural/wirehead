@@ -1,0 +1,98 @@
+1372429:C 17 Nov 2023 19:44:55.079 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+1372429:C 17 Nov 2023 19:44:55.079 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+1372429:C 17 Nov 2023 19:44:55.079 * Redis version=7.2.1, bits=64, commit=00000000, modified=0, pid=1372429, just started
+1372429:C 17 Nov 2023 19:44:55.079 * Configuration loaded
+1372429:M 17 Nov 2023 19:44:55.080 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+1372429:M 17 Nov 2023 19:44:55.080 * monotonic clock: POSIX clock_gettime
+1372429:M 17 Nov 2023 19:44:55.080 # Failed to write PID file: Permission denied
+1372429:M 17 Nov 2023 19:44:55.080 * Running mode=standalone, port=6379.
+1372429:M 17 Nov 2023 19:44:55.081 * Server initialized
+1372429:M 17 Nov 2023 19:44:55.081 * Ready to accept connections tcp
+1372429:signal-handler (1700250319) Received SIGINT scheduling shutdown...
+1372429:M 17 Nov 2023 19:45:19.656 * User requested shutdown...
+1372429:M 17 Nov 2023 19:45:19.656 * Removing the pid file.
+1372429:M 17 Nov 2023 19:45:19.656 # Redis is now ready to exit, bye bye...
+1373715:C 17 Nov 2023 19:50:31.909 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+1373715:C 17 Nov 2023 19:50:31.909 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+1373715:C 17 Nov 2023 19:50:31.909 * Redis version=7.2.1, bits=64, commit=00000000, modified=0, pid=1373715, just started
+1373715:C 17 Nov 2023 19:50:31.909 * Configuration loaded
+1373715:M 17 Nov 2023 19:50:31.910 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+1373715:M 17 Nov 2023 19:50:31.910 * monotonic clock: POSIX clock_gettime
+1373715:M 17 Nov 2023 19:50:31.910 # Failed to write PID file: Permission denied
+1373715:M 17 Nov 2023 19:50:31.910 * Running mode=standalone, port=6379.
+1373715:M 17 Nov 2023 19:50:31.911 * Server initialized
+1373715:M 17 Nov 2023 19:50:31.911 * Ready to accept connections tcp
+1373715:signal-handler (1700250890) Received SIGINT scheduling shutdown...
+1373715:M 17 Nov 2023 19:54:50.789 * User requested shutdown...
+1373715:M 17 Nov 2023 19:54:50.789 * Removing the pid file.
+1373715:M 17 Nov 2023 19:54:50.789 # Redis is now ready to exit, bye bye...
+1377080:C 17 Nov 2023 19:59:51.236 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+1377080:C 17 Nov 2023 19:59:51.236 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+1377080:C 17 Nov 2023 19:59:51.236 * Redis version=7.2.1, bits=64, commit=00000000, modified=0, pid=1377080, just started
+1377080:C 17 Nov 2023 19:59:51.236 * Configuration loaded
+1377080:M 17 Nov 2023 19:59:51.237 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+1377080:M 17 Nov 2023 19:59:51.237 * monotonic clock: POSIX clock_gettime
+1377080:M 17 Nov 2023 19:59:51.237 # Failed to write PID file: Permission denied
+1377080:M 17 Nov 2023 19:59:51.237 * Running mode=standalone, port=6379.
+1377080:M 17 Nov 2023 19:59:51.238 * Server initialized
+1377080:M 17 Nov 2023 19:59:51.238 * Ready to accept connections tcp
+1377080:signal-handler (1700251200) Received SIGINT scheduling shutdown...
+1377080:M 17 Nov 2023 20:00:00.064 * User requested shutdown...
+1377080:M 17 Nov 2023 20:00:00.064 * Removing the pid file.
+1377080:M 17 Nov 2023 20:00:00.064 # Redis is now ready to exit, bye bye...
+1377319:C 17 Nov 2023 20:00:14.230 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+1377319:C 17 Nov 2023 20:00:14.230 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+1377319:C 17 Nov 2023 20:00:14.230 * Redis version=7.2.1, bits=64, commit=00000000, modified=0, pid=1377319, just started
+1377319:C 17 Nov 2023 20:00:14.230 * Configuration loaded
+1377319:M 17 Nov 2023 20:00:14.231 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+1377319:M 17 Nov 2023 20:00:14.231 * monotonic clock: POSIX clock_gettime
+1377319:M 17 Nov 2023 20:00:14.231 # Failed to write PID file: Permission denied
+1377319:M 17 Nov 2023 20:00:14.231 * Running mode=standalone, port=6379.
+1377319:M 17 Nov 2023 20:00:14.232 * Server initialized
+1377319:M 17 Nov 2023 20:00:14.233 * Ready to accept connections tcp
+1377319:signal-handler (1700251309) Received SIGINT scheduling shutdown...
+1377319:M 17 Nov 2023 20:01:49.628 * User requested shutdown...
+1377319:M 17 Nov 2023 20:01:49.628 * Removing the pid file.
+1377319:M 17 Nov 2023 20:01:49.629 # Redis is now ready to exit, bye bye...
+1377575:C 17 Nov 2023 20:01:59.145 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+1377575:C 17 Nov 2023 20:01:59.145 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+1377575:C 17 Nov 2023 20:01:59.145 * Redis version=7.2.1, bits=64, commit=00000000, modified=0, pid=1377575, just started
+1377575:C 17 Nov 2023 20:01:59.145 * Configuration loaded
+1377575:M 17 Nov 2023 20:01:59.146 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+1377575:M 17 Nov 2023 20:01:59.146 * monotonic clock: POSIX clock_gettime
+1377575:M 17 Nov 2023 20:01:59.147 # Failed to write PID file: Permission denied
+1377575:M 17 Nov 2023 20:01:59.147 * Running mode=standalone, port=6379.
+1377575:M 17 Nov 2023 20:01:59.147 * Server initialized
+1377575:M 17 Nov 2023 20:01:59.149 * Ready to accept connections tcp
+1377575:signal-handler (1700251428) Received SIGTERM scheduling shutdown...
+1377575:M 17 Nov 2023 20:03:48.531 * User requested shutdown...
+1377575:M 17 Nov 2023 20:03:48.531 * Removing the pid file.
+1377575:M 17 Nov 2023 20:03:48.531 # Redis is now ready to exit, bye bye...
+1845454:C 22 Nov 2023 19:57:40.171 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+1845454:C 22 Nov 2023 19:57:40.171 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+1845454:C 22 Nov 2023 19:57:40.171 * Redis version=7.2.1, bits=64, commit=00000000, modified=0, pid=1845454, just started
+1845454:C 22 Nov 2023 19:57:40.171 * Configuration loaded
+1845454:M 22 Nov 2023 19:57:40.171 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+1845454:M 22 Nov 2023 19:57:40.171 * monotonic clock: POSIX clock_gettime
+1845454:M 22 Nov 2023 19:57:40.173 # Failed to write PID file: Permission denied
+1845454:M 22 Nov 2023 19:57:40.173 * Running mode=standalone, port=6379.
+1845454:M 22 Nov 2023 19:57:40.175 * Server initialized
+1845454:M 22 Nov 2023 19:57:40.176 * Ready to accept connections tcp
+1845454:signal-handler (1700683458) Received SIGINT scheduling shutdown...
+1845454:M 22 Nov 2023 20:04:18.651 * User requested shutdown...
+1845454:M 22 Nov 2023 20:04:18.651 * Removing the pid file.
+1845454:M 22 Nov 2023 20:04:18.651 # Redis is now ready to exit, bye bye...
+3878777:C 04 Dec 2023 01:29:09.745 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+3878777:C 04 Dec 2023 01:29:09.745 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+3878777:C 04 Dec 2023 01:29:09.745 * Redis version=7.2.1, bits=64, commit=00000000, modified=0, pid=3878777, just started
+3878777:C 04 Dec 2023 01:29:09.745 * Configuration loaded
+3878777:M 04 Dec 2023 01:29:09.745 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+3878777:M 04 Dec 2023 01:29:09.745 * monotonic clock: POSIX clock_gettime
+3878777:M 04 Dec 2023 01:29:09.748 # Failed to write PID file: Permission denied
+3878777:M 04 Dec 2023 01:29:09.748 * Running mode=standalone, port=6379.
+3878777:M 04 Dec 2023 01:29:09.761 * Server initialized
+3878777:M 04 Dec 2023 01:29:09.767 * Ready to accept connections tcp
+3878777:signal-handler (1701653593) Received SIGTERM scheduling shutdown...
+3878777:M 04 Dec 2023 01:33:13.676 * User requested shutdown...
+3878777:M 04 Dec 2023 01:33:13.676 * Removing the pid file.
+3878777:M 04 Dec 2023 01:33:13.676 # Redis is now ready to exit, bye bye...
