@@ -14,6 +14,34 @@ from SynthSeg.brain_generator import BrainGenerator
 from wirehead_defaults import *
 
 # Redis connection and queue handling functions
+LABEL_MAP = np.asarray([ 0, 0, 1, 2, 3, 4, 0, 5, 6, 0, 7, 8,
+    9, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 1, 16, 0, 17, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 19, 20, 21, 0, 22, 23, 0,
+    24, 25, 26, 27, 28, 29, 0, 0, 18, 30, 0, 31, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 21, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0], dtype='int').astype(np.uint8)
+
 def push_redis(r, package_bytes):
     def lock_db(r, lock_name, timeout=10):
         """
@@ -64,22 +92,32 @@ def connect_to_redis(host, port):
             return None 
  
 
-# Sample preprocessing functions
-def preprocess_label(lab):
-    "Convert unique labels into range [0..52]"
-    label_to_int = {0: 0, 24: 0, 30: 0, 62: 0, 72: 0, 85: 0, 502: 0, 506: 0, 507: 0, 508: 0, 509: 0, 511: 0, 512: 0, 514: 0, 515: 0, 516: 0, 530: 0, 2: 1, 25: 1, 3: 2, 4: 3, 5: 4, 136: 3, 137: 4, 7: 5, 8: 6, 10: 7, 11: 8, 12: 9, 13: 10, 14: 11, 15: 12, 16: 13, 17: 14, 18: 15, 26: 16, 28: 17, 41: 18, 57: 18, 42: 19, 43: 20, 44: 21, 163: 20, 164: 21, 46: 22, 47: 23, 49: 24, 50: 25, 51: 26, 52: 27, 53: 28, 54: 29, 58: 30, 60: 31}
-    # Vectorized mapping of original labels to contiguous range
-    vectorized_map = np.vectorize(lambda x: label_to_int.get(x, -1))  # -1 as default for unmapped labels
-    lab = vectorized_map(lab)
-    print(np.unique(lab))
-    return lab.astype(np.uint8)
+def preprocess_label(lab, label_map=LABEL_MAP):
+    return label_map[lab.astype(np.uint8)]
 
-def preprocess_image(img, qmin=0.01, qmax=0.99):
-    """Unit interval preprocessing"""
+def get_tensor_info(tensor):
+    min_value = np.min(tensor)
+    max_value = np.max(tensor)
+    shape = tensor.shape
+    dtype = tensor.dtype
+
+    print(f"Min Value : {min_value}")
+    print(f"Max Value : {max_value}")
+    print(f"Shape     : {shape}")
+    print(f"Data Type : {dtype}")
+
+def preprocess_image_quantile(img, qmin=0.01, qmax=0.99):
+    "Unit interval preprocessing for quantile normalization"
     qmin_value = np.quantile(img, qmin)
     qmax_value = np.quantile(img, qmax)
     img = (img - qmin_value) / (qmax_value - qmin_value)
-    return img
+    return img.astype(np.uint8)
+
+def preprocess_image_min_max(img):
+    "Min max scaling preprocessing for the range 0..1"
+    img = ((img - img.min()) / (img.max() - img.min()))
+    return img.astype(np.uint8)
+
 
 def measure_time(generation_time, generation_time_end, pickle_time, pickle_time_end, push_time, push_time_end):
     print(f"""
@@ -116,17 +154,25 @@ if __name__ == '__main__':
     while(True):
         for i in range(GENERATOR_LENGTH):
             # Start of generation
+            total_time = time.time()
             generation_time = time.time()
             img, lab = brain_generator.generate_brain()
             generation_time_end = time.time()
+
             # Start of pickling
             pickle_time = time.time()
-
+            preprocess_time = time.time()
+            img = preprocess_image_min_max(img)*255
+            lab = preprocess_label(lab)
+            print("Img info:")
+            get_tensor_info(img)
+            print("Lab info:")
+            get_tensor_info(lab)
             package = (
-                    preprocess_image(img),
-                    preprocess_label(lab)
+                    img,
+                    lab
                     )
-
+            print(f'Preprocesing took {time.time()-preprocess_time}')
             package_bytes = pickle.dumps(package)
             pickle_time_end = time.time()
             # Start of pushing to server
@@ -141,3 +187,4 @@ if __name__ == '__main__':
                     time.time()
                     )
 
+            print(f'In total, everything took {time.time()-total_time}')
