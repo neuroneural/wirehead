@@ -1,4 +1,5 @@
 import redis
+import torch
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
 import time
@@ -88,7 +89,6 @@ class whDataset(Dataset):
         hang_until_redis_is_loaded(r)
     def __len__(self):
         return self.num_samples
-
     def __getitem__(self, index):
         r = redis.Redis(host=self.host, port=self.port)
         index = index % r.llen(self.db_key)  # Use modular arithmetic to cycle through dataset
@@ -96,6 +96,34 @@ class whDataset(Dataset):
         if pickled_data is not None:
             data = pickle.loads(pickled_data)
             return self.transform(data[0]), self.transform(data[1])
+        else:
+            raise IndexError(f"Index {index} out of range")
+
+class whDataset_test(Dataset):
+    def __init__(self, transform, num_samples=int(1e6), host=DEFAULT_HOST, port=DEFAULT_PORT):
+        self.transform = transform
+        self.db_key = 'db0'
+        self.num_samples = num_samples
+        self.host=host
+        self.port=port
+        r = redis.Redis(host=self.host, port=self.port)
+        hang_until_redis_is_loaded(r)
+
+    def __len__(self):
+        return self.num_samples
+
+    def __getitem__(self, index):
+        r = redis.Redis(host=self.host, port=self.port)
+        index = index % r.llen(self.db_key)  # Use modular arithmetic to cycle through dataset
+        pickled_data = r.lindex(self.db_key, index)
+        if pickled_data is not None:
+            data = pickle.loads(pickled_data)
+
+            print(data[0].shape, data[1].shape)
+            img_tensor = torch.from_numpy(data[0]).to('cuda', torch.float32, non_blocking=True)
+            lab_tensor = torch.from_numpy(data[1]).to('cuda', torch.long, non_blocking=True)
+
+            return img_tensor, lab_tensor
         else:
             raise IndexError(f"Index {index} out of range")
 
