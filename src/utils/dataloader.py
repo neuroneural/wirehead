@@ -1,3 +1,8 @@
+# Wirehead imports
+import sys
+sys.path.append('/data/users1/mdoan4/wirehead/src/utils')
+import wirehead as wh
+
 from datetime import datetime 
 import os
 import easybar
@@ -32,12 +37,6 @@ from mongoslabs.mongoloader import (
         mtransform,
 )
 
-
-# Wirehead imports
-import sys
-sys.path.append('/data/users1/mdoan4/wirehead/src')
-import wirehead as wh
-
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:100'
 os.environ['TORCH_DISTRIBUTED_DEBUG'] = 'DETAIL'
 
@@ -61,7 +60,6 @@ batched_subjs = 1
 batch_size = 1
 n_classes = 104
 image_path = "/data/users2/splis/data/enmesh2/data/t1_c.nii.gz"
-
 
 
 # Temp functions

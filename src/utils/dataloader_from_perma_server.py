@@ -1,3 +1,8 @@
+# Wirehead imports
+import sys
+sys.path.append('/data/users1/mdoan4/wirehead/src/utils')
+import wirehead as wh
+
 from datetime import datetime 
 import os
 import easybar
@@ -33,8 +38,7 @@ from mongoslabs.mongoloader import (
 )
 
 
-# Wirehead imports
-import wirehead as wh
+
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:100'
 os.environ['TORCH_DISTRIBUTED_DEBUG'] = 'DETAIL'
@@ -72,7 +76,7 @@ def my_collate_fn(batch):
     return torch.tensor(img), torch.tensor(lab)
 
 # Dataloading with wirehead 
-tdataset = wh.Dataloader(transform=my_transform, num_samples = 100)
+tdataset = wh.whDataloader(transform=my_transform, num_samples = 100)
 tsampler= (
         MBatchSampler(tdataset)
         )
