@@ -47,8 +47,8 @@ from meshnet import enMesh_checkpoint, enMesh
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:100"
 os.environ["TORCH_DISTRIBUTED_DEBUG"] = "DETAIL"
-os.environ["NCCL_SOCKET_IFNAME"] = "ib0"
-#os.environ["NCCL_P2P_LEVEL"] = "NVL" #comment this out for distributed training?
+#os.environ["NCCL_SOCKET_IFNAME"] = "ib0"
+os.environ["NCCL_P2P_LEVEL"] = "NVL" #comment this out for distributed training?
 
 volume_shape = [256] * 3
 MAXSHAPE = 300
@@ -63,16 +63,14 @@ config_file = "./src/utils/modelAE.json"
 
 def rtransform(x):
     return x
-def rcollate(batch, size=256): # 'size' is just 'cubesize'
-    data = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.float)
+
+def rcollate(batch, size=256):    
+    data = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.float32)
     labels = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.long)
-    items = batch[0] # Wirehead will only fetch with batchsize 1
-    data[0, :, :, :] = torch.from_numpy(items[0]).float()
-    labels[0, :, :, :] = torch.from_numpy(items[1]).long()
+    data[0, :, :, :] = torch.from_numpy(batch[0][0]).to('cuda', torch.float32, non_blocking=True)
+    labels[0:, :, :] = torch.from_numpy(batch[0][1]).to('cuda', torch.long, non_blocking=True)
     return data.unsqueeze(1), labels
 
-
-# CustomRunner – PyTorch for-loop decomposition
 # https://github.com/catalyst-team/catalyst#minimal-examples
 class CustomRunner(dl.Runner):
     def __init__(
@@ -205,7 +203,7 @@ class CustomRunner(dl.Runner):
         ).to(self.engine.device)
         criterion = torch.nn.CrossEntropyLoss(
             weight=class_weight, label_smoothing=0.01
-        ) # so we're using cross entropy loss, interesting
+        ) 
         # criterion = DiceLoss()
         return criterion       
     
@@ -354,48 +352,47 @@ if __name__ == "__main__":
     )
 
     start_experiment = 0
-    #for experiment in range(len(cubesizes)):
-    experiment = 0 
-    COLLECTION = collections[experiment]
-    batch_size = batchsize[experiment]
+    for experiment in range(len(cubesizes)):
+        COLLECTION = collections[experiment]
+        batch_size = batchsize[experiment]
 
-    off_brain_weight = weights[experiment]
-    subvolume_shape = [cubesizes[experiment]] * 3
-    onecycle_lr = rmsprop_lr = (
-        attenuates[experiment] * 0.1 * 8 * batch_size / 256
-    )
-    n_epochs = epochs[experiment]
-    n_fetch = prefetches[experiment]
-    wandb_experiment = (
-        f"{start_experiment + experiment:02} cube "
-        + str(subvolume_shape[0])
-        + " "
-        + COLLECTION
-        + model_label
-    )
+        off_brain_weight = weights[experiment]
+        subvolume_shape = [cubesizes[experiment]] * 3
+        onecycle_lr = rmsprop_lr = (
+            attenuates[experiment] * 0.1 * 8 * batch_size / 256
+        )
+        n_epochs = epochs[experiment]
+        n_fetch = prefetches[experiment]
+        wandb_experiment = (
+            f"{start_experiment + experiment:02} cube "
+            + str(subvolume_shape[0])
+            + " "
+            + COLLECTION
+            + model_label
+        )
 
-    runner = CustomRunner(
-        logdir=logdir,
-        wandb_project=wandb_project,
-        wandb_experiment=wandb_experiment,
-        model_path=model_path,
-        n_channels=model_channels,
-        n_classes=n_classes,
-        n_epochs=n_epochs,
-        optimize_inline=optimize_inline,
-        validation_percent=validation_percent,
-        onecycle_lr=onecycle_lr,
-        rmsprop_lr=rmsprop_lr,
-        batch_size=batch_size,
-        off_brain_weight=off_brain_weight,
-        prefetches=n_fetch,
-        subvolume_shape=subvolume_shape,
-    )
-    
-    runner.run()
+        runner = CustomRunner(
+            logdir=logdir,
+            wandb_project=wandb_project,
+            wandb_experiment=wandb_experiment,
+            model_path=model_path,
+            n_channels=model_channels,
+            n_classes=n_classes,
+            n_epochs=n_epochs,
+            optimize_inline=optimize_inline,
+            validation_percent=validation_percent,
+            onecycle_lr=onecycle_lr,
+            rmsprop_lr=rmsprop_lr,
+            batch_size=batch_size,
+            off_brain_weight=off_brain_weight,
+            prefetches=n_fetch,
+            subvolume_shape=subvolume_shape,
+        )
+        
+        runner.run()
 
-    shutil.copy(
-        logdir + "/model.last.pth",
-        logdir + "/model.last." + str(subvolume_shape[0]) + ".pth",
-    )
-    model_path = logdir + "model.last.pth"
+        shutil.copy(
+            logdir + "/model.last.pth",
+            logdir + "/model.last." + str(subvolume_shape[0]) + ".pth",
+        )
+        model_path = logdir + "model.last.pth"
