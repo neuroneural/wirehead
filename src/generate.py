@@ -93,7 +93,7 @@ def connect_to_redis(host, port):
  
 
 def preprocess_label(lab, label_map=LABEL_MAP):
-    return label_map[lab.astype(np.uint8)]
+    return label_map[lab].astype(np.uint8)
 
 def get_tensor_info(tensor):
     min_value = np.min(tensor)
@@ -111,12 +111,12 @@ def preprocess_image_quantile(img, qmin=0.01, qmax=0.99):
     qmin_value = np.quantile(img, qmin)
     qmax_value = np.quantile(img, qmax)
     img = (img - qmin_value) / (qmax_value - qmin_value)
-    return img.astype(np.uint8)
+    return img
 
 def preprocess_image_min_max(img):
     "Min max scaling preprocessing for the range 0..1"
     img = ((img - img.min()) / (img.max() - img.min()))
-    return img.astype(np.uint8)
+    return img
 
 
 def measure_time(generation_time, generation_time_end, pickle_time, pickle_time_end, push_time, push_time_end):
@@ -162,8 +162,9 @@ if __name__ == '__main__':
             # Start of pickling
             pickle_time = time.time()
             preprocess_time = time.time()
-            img = preprocess_image_min_max(img)*255
-            lab = preprocess_label(lab)
+            img = preprocess_image_min_max(img)*255 # Normalize and multiply by 255
+            img = img.astype(np.uint8) # Quantize to uint8
+            lab = preprocess_label(lab) # Convert non brain labels to 0 and map remaining labels corrently
             print("Img info:")
             get_tensor_info(img)
             print("Lab info:")
