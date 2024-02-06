@@ -81,6 +81,7 @@ def rtransform(x):
     return x
 
 def rcollate(batch, size=256):
+    '''
     print('ding')
     sample = batch[0][0]
     label = batch[0][1]
@@ -88,10 +89,13 @@ def rcollate(batch, size=256):
     get_tensor_info(label)
     np.save('./sample.npy', sample)
     np.save('./label.npy', label)
+    '''
     data = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.float32)
     labels = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.long)
-    data[0, :, :, :] = min_max_normalize(torch.from_numpy(batch[0][0]).to(torch.float32, non_blocking=True))
-    labels[0, :, :, :] = torch.from_numpy(batch[0][1]).to(torch.long, non_blocking=True)
+    #data[0, :, :, :] = min_max_normalize(torch.from_numpy(batch[0][0]).to(torch.float32, non_blocking=True))
+    #labels[0, :, :, :] = torch.from_numpy(batch[0][1]).to(torch.long, non_blocking=True)
+    data[0, :, :, :] = min_max_normalize(torch.from_numpy(batch[0][0]).float())
+    labels[0, :, :, :] = torch.from_numpy(batch[0][1]).long()
     return data.unsqueeze(1), labels
 
 # https://github.com/catalyst-team/catalyst#minimal-examples
