@@ -62,8 +62,13 @@ WIREHEAD_NUMSAMPLES = 10 # specifies how many samples to fetch from wirehead
 config_file = "./src/utils/modelAE.json"
 
 def min_max_normalize(x):
+    """Min max normalization preprocessing"""
     return (x - x.min()) / (x.max() - x.min())
 
+def quantile_normalize(img, qmin=0.01, qmax=0.99):
+    """Unit interval preprocessing"""
+    img = (img - img.quantile(qmin)) / (img.quantile(qmax) - img.quantile(qmin))
+    return img
 
 def get_tensor_info(tensor):
     min_value = tensor.min()
@@ -74,7 +79,6 @@ def get_tensor_info(tensor):
     print(f"Max Value : {max_value}")
     print(f"Shape     : {shape}")
     print(f"Data Type : {dtype}")
-
 
 def rtransform(x):
     #return min_max_normalize(x)
