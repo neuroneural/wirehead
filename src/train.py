@@ -53,7 +53,7 @@ os.environ["NCCL_P2P_LEVEL"] = "NVL" #comment this out for distributed training?
 volume_shape = [256] * 3
 MAXSHAPE = 300
 
-n_classes = [104, 3, 50][0]
+n_classes = 32
 
 WIREHEAD_HOST = DEFAULT_HOST # "arctrdagn019"  
 WIREHEAD_PORT = DEFAULT_PORT # 6379
@@ -61,14 +61,37 @@ WIREHEAD_NUMSAMPLES = 10 # specifies how many samples to fetch from wirehead
 
 config_file = "./src/utils/modelAE.json"
 
+def min_max_normalize(x):
+    return (x - x.min()) / (x.max() - x.min())
+
+
+def get_tensor_info(tensor):
+    min_value = tensor.min()
+    max_value = tensor.max()
+    shape = tensor.shape
+    dtype = tensor.dtype
+    print(f"Min Value : {min_value}")
+    print(f"Max Value : {max_value}")
+    print(f"Shape     : {shape}")
+    print(f"Data Type : {dtype}")
+
+
 def rtransform(x):
+    #return min_max_normalize(x)
     return x
 
-def rcollate(batch, size=256):    
+def rcollate(batch, size=256):
+    print('ding')
+    sample = batch[0][0]
+    label = batch[0][1]
+    get_tensor_info(sample)
+    get_tensor_info(label)
+    np.save('./sample.npy', sample)
+    np.save('./label.npy', label)
     data = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.float32)
     labels = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.long)
-    data[0, :, :, :] = torch.from_numpy(batch[0][0]).to('cuda', torch.float32, non_blocking=True)
-    labels[0:, :, :] = torch.from_numpy(batch[0][1]).to('cuda', torch.long, non_blocking=True)
+    data[0, :, :, :] = min_max_normalize(torch.from_numpy(batch[0][0]).to(torch.float32, non_blocking=True))
+    labels[0, :, :, :] = torch.from_numpy(batch[0][1]).to(torch.long, non_blocking=True)
     return data.unsqueeze(1), labels
 
 # https://github.com/catalyst-team/catalyst#minimal-examples
@@ -259,6 +282,12 @@ class CustomRunner(dl.Runner):
     def handle_batch(self, batch):
         # unpack the batch
         sample, label = batch
+        get_tensor_info(sample)
+        get_tensor_info(label)
+        np.save('./sample_handle.npy', sample[0][0].cpu().numpy())
+        np.save('./label_handle.npy', label[0].cpu().numpy())
+        #get_tensor_info(sample)
+        #get_tensor_info(batch)
         # run model forward/backward pass
         if self.model.training:
             if self.shape > MAXSHAPE:
@@ -333,13 +362,14 @@ if __name__ == "__main__":
     wandb_project = f"curriculum_{model_channels}_sub"
 
     # set up parameters of your experiment
-    cubesizes = [256] * 6
-    batchsize = [1] * 6
+    experiments_len = 6
+    cubesizes =[32, 32, 64, 64, 192, 256] # the number here determines the number of runs
+    batchsize = [32, 32, 16, 16, 1, 1] 
     weights = [0.5] * 2 + [1] * 4  # weights for the 0-class
     collections = ["HCP", "MRNslabs"] * 3
-    epochs = [1] * 2 + [1] * 2 + [1, 1]
-    prefetches = [1] * 6
-    attenuates = [1] * 6
+    epochs = [50] * 2 + [100] * 2 + [50, 10]
+    prefetches = [24] * experiments_len 
+    attenuates = [1] * experiments_len 
 
     assert_equal_length(
         cubesizes,
@@ -370,7 +400,6 @@ if __name__ == "__main__":
             + COLLECTION
             + model_label
         )
-
         runner = CustomRunner(
             logdir=logdir,
             wandb_project=wandb_project,
