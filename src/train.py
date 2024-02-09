@@ -57,7 +57,7 @@ n_classes = 32
 
 WIREHEAD_HOST = DEFAULT_HOST # "arctrdagn019"  
 WIREHEAD_PORT = DEFAULT_PORT # 6379
-WIREHEAD_NUMSAMPLES = 10 # specifies how many samples to fetch from wirehead 
+WIREHEAD_NUMSAMPLES = 500 # specifies how many samples to fetch from wirehead 
 
 config_file = "./src/utils/modelAE.json"
 
@@ -94,12 +94,8 @@ def rcollate(batch, size=256):
     np.save('./sample.npy', sample)
     np.save('./label.npy', label)
     '''
-    data = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.float32)
-    labels = torch.empty(len(batch), size, size, size, requires_grad=False, dtype=torch.long)
-    #data[0, :, :, :] = min_max_normalize(torch.from_numpy(batch[0][0]).to(torch.float32, non_blocking=True))
-    #labels[0, :, :, :] = torch.from_numpy(batch[0][1]).to(torch.long, non_blocking=True)
-    data[0, :, :, :] = min_max_normalize(torch.from_numpy(batch[0][0]).float())
-    labels[0, :, :, :] = torch.from_numpy(batch[0][1]).long()
+    data = quantile_normalize(torch.from_numpy(batch[0][0]).float()).unsqueese(1)
+    labels = torch.from_numpy(batch[0][1]).long().unsqueese(1)
     return data.unsqueeze(1), labels
 
 # https://github.com/catalyst-team/catalyst#minimal-examples
