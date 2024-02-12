@@ -11,12 +11,12 @@
 
 PORT=6379
 
-export PATH=$PATH:/data/users1/mdoan4/wirehead/redis/redis-stable/src/
+export PATH=$PATH:/data/users1/mdoan4/wirehead/dependencies/redis/redis-stable/src/
 
 echo $HOSTNAME >&2
 
 # Start redis
-/data/users1/mdoan4/wirehead/redis/redis-stable/src/redis-server /data/users1/mdoan4/wirehead/src/utils/redis.conf >> ./log/server_wirehead.log 2>> ./log/server_wirehead_error.log &
+/data/users1/mdoan4/wirehead/dependencies/redis/redis-stable/src/redis-server /data/users1/mdoan4/wirehead/src/utils/redis.conf >> ./log/server_wirehead.log 2>> ./log/server_wirehead_error.log &
 REDIS_PID=$!
 
 sleep 2 
