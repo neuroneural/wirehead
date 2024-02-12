@@ -1,0 +1,59 @@
+/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/loggers/wandb.py:77: UserWarning: Wandb does NOT support several x-axes for logging.For this reason, everything has to be logged in the batch-based regime.
+  warnings.warn(
+wandb: Currently logged in as: spikedoanz. Use `wandb login --relogin` to force relogin
+wandb: - Waiting for wandb.init()...wandb: \ Waiting for wandb.init()...wandb: wandb version 0.16.2 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.16.0
+wandb: Run data is saved locally in /data/users1/mdoan4/wirehead/scripts/sbatch/wandb/run-20240124_031249-ke33lstt
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 00 cube 256 HCP_startLARGE
+wandb: ⭐️ View project at https://wandb.ai/spikedoanz/curriculum_15_sub
+wandb: 🚀 View run at https://wandb.ai/spikedoanz/curriculum_15_sub/runs/ke33lstt
+wandb: 🚀 View run 00 cube 256 HCP_startLARGE at: https://wandb.ai/spikedoanz/curriculum_15_sub/runs/ke33lstt
+wandb: ️⚡ View job at https://wandb.ai/spikedoanz/curriculum_15_sub/jobs/QXJ0aWZhY3RDb2xsZWN0aW9uOjEyODQzMjAxOA==/version_details/v4
+wandb: Synced 5 W&B file(s), 0 media file(s), 2 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20240124_031249-ke33lstt/logs
+Traceback (most recent call last):
+  File "/data/users1/mdoan4/wirehead/src/train.py", line 392, in <module>
+    runner.run()
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/core/runner.py", line 422, in run
+    self._run_event("on_exception")
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/core/runner.py", line 365, in _run_event
+    getattr(self, event)(self)
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/core/runner.py", line 357, in on_exception
+    raise self.exception
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/core/runner.py", line 419, in run
+    self._run()
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/core/runner.py", line 410, in _run
+    self.engine.spawn(self._run_local)
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/engines/torch.py", line 115, in spawn
+    return mp.spawn(
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/torch/multiprocessing/spawn.py", line 246, in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/torch/multiprocessing/spawn.py", line 202, in start_processes
+    while not context.join():
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/torch/multiprocessing/spawn.py", line 163, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
+
+-- Process 1 terminated with the following error:
+Traceback (most recent call last):
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/torch/multiprocessing/spawn.py", line 74, in _wrap
+    fn(i, *args)
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/core/runner.py", line 404, in _run_local
+    self._run_event("on_experiment_start")
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/core/runner.py", line 361, in _run_event
+    getattr(self, event)(self)
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/core/runner.py", line 278, in on_experiment_start
+    self._setup_components()
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/core/runner.py", line 235, in _setup_components
+    self.model = self._setup_model()
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_train/lib/python3.9/site-packages/catalyst/core/runner.py", line 214, in _setup_model
+    self.model = self.get_model()
+  File "/data/users1/mdoan4/wirehead/src/train.py", line 192, in get_model
+    model = enMesh_checkpoint(
+  File "/data/users1/mdoan4/wirehead/src/utils/meshnet.py", line 115, in __init__
+    with open(config_file, "r") as f:
+FileNotFoundError: [Errno 2] No such file or directory: './src/utils/modelAE.json'
+
+kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]

@@ -4,6 +4,7 @@
 #SBATCH --nodes=1
 #SBATCH --output=./log/training_output.log
 #SBATCH --error=./log/training_error.log
+#SBATCH --gres=gpu:A40:2
 #SBATCH --time=01:00:00
 #SBATCH --nodelist=arctrdagn041
 #SBATCH -p qTRDGPU
@@ -18,7 +19,7 @@ conda activate wirehead_train
 
 echo "Wirehead Train: conda activated successfully"
 
-python /data/users1/mdoan4/wirehead/training_scripts/curriculum_training_sub.py --ip $LOCAL_IP $SLURM_ARRAY_TASK_ID 
+python /data/users1/mdoan4/wirehead/src/train.py $SLURM_ARRAY_TASK_ID 
 
 echo "Wirehead Training: Terminated"
 # Cleanup 
