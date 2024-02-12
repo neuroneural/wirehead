@@ -128,12 +128,15 @@ def measure_time(generation_time, generation_time_end, pickle_time, pickle_time_
     The generation took in total {generation_time_end - generation_time}
     """)
 
-def create_generator():
+def create_generator(training_seg=None):
     f"""
     This function is used every {GENERATOR_LENGTH} samples
     to refresh to the underlying ground truth used by
     SynthSeg"""
-    training_seg = random.choice(DATA_FILES)
+    if training_seg==None:
+        training_seg = random.choice(DATA_FILES)
+    else:
+        training_seg = training_seg
     brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
     print(f"Generator: SynthSeg is generating off {training_seg}")
     return brain_generator
@@ -142,17 +145,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--ip", help="IP address for Redis")
     parser.add_argument("--port", help="Port for Redis")
+    parser.add_argument("--training_seg", help="Segment to use for generation")
+    parser.add_argument("--gen_len", help="Amount of samples to generate")
+
     args = parser.parse_args()
 
     host = args.ip if args.ip else DEFAULT_HOST
     port = args.port if args.port else DEFAULT_PORT
-
+    training_seg = args.training_seg if args.training_seg else None
+    gen_len = args.gen_len if args.gen_len else GENERATOR_LENGTH 
+        
     r = connect_to_redis(host, port)
     #TODO: reimplement the rotating samples stuff
-    brain_generator = create_generator()
+    brain_generator = create_generator(training_seg)
     # Main generator loop
     while(True):
-        for i in range(GENERATOR_LENGTH):
+        for i in range(gen_len):
             # Start of generation
             total_time = time.time()
             generation_time = time.time()
