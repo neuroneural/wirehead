@@ -94,8 +94,8 @@ def rcollate(batch, size=256):
     np.save('./sample.npy', sample)
     np.save('./label.npy', label)
     '''
-    data = quantile_normalize(torch.from_numpy(batch[0][0]).float()).unsqueese(1)
-    labels = torch.from_numpy(batch[0][1]).long().unsqueese(1)
+    data = quantile_normalize(torch.from_numpy(batch[0][0]).float()).unsqueeze(1)
+    labels = torch.from_numpy(batch[0][1]).long().unsqueeze(1)
     return data.unsqueeze(1), labels
 
 # https://github.com/catalyst-team/catalyst#minimal-examples
