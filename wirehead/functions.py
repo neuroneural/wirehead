@@ -5,7 +5,7 @@ import torch
 import numpy as np
 import pickle
 import time
-from wirehead.defaults import SWAP_THRESHOLD
+from wirehead.defaults import SWAP_THRESHOLD, CHUNKSIZE
 
 ###############################
 ### Functions for generator ###
@@ -15,7 +15,7 @@ def push_mongo(
     label_bytes,
     id,
     collection_bin,
-    chunkSize=10
+    chunkSize=CHUNKSIZE
     ):
     """Pushes a chunkified serilized tuple containing two serialized (img: torch.Tensor, lab:torch.tensor)"""
     for chunk in chunk_binobj(image_bytes, id, "image", chunkSize):
@@ -50,6 +50,35 @@ def tensor2bin(tensor: torch.Tensor) -> bytes:
     tensor_binary = buffer.getvalue()
     return tensor_binary
 
+
+
+def get_np_tensor_info(tensor: np.ndarray):
+    """ Prints out information about a numpy ndarray"""
+    min_value = np.min(tensor)
+    max_value = np.max(tensor)
+    shape = tensor.shape
+    dtype = tensor.dtype
+    print(f"Min Value : {min_value}")
+    print(f"Max Value : {max_value}")
+    print(f"Shape     : {shape}")
+    print(f"Data Type : {dtype}")
+
+def preprocess_image_quantile(img: np.ndarray, qmin=0.01, qmax=0.99)->np.ndarray:
+    "Unit interval preprocessing for quantile normalization"
+    qmin_value = np.quantile(img, qmin)
+    qmax_value = np.quantile(img, qmax)
+    img = (img - qmin_value) / (qmax_value - qmin_value)
+    return img
+
+def preprocess_image_min_max(img:np.ndarray)->np.ndarray:
+    "Min max scaling preprocessing for the range 0..1"
+    img = ((img - img.min()) / (img.max() - img.min()))
+    return img
+
+
+
+
+
 #############################
 ### Functions for manager ###
 #############################
@@ -63,19 +92,15 @@ def swap_mongo(db, n_swaps=0, debug=False):
     Returns (optional): 
         n_swaps + 1         : total number of swaps + 1
     """
-    write_side = db['write']
-    read_side = db['read']
-
     start_time = time.time()
-
     with db.client.start_session() as session:
-        session.start_transaction():
-            db['write'].rename('read', dropTarget=True, session=session)
-            db.create_collection('write', session=session)
+        session.start_transaction()
+        db['write'].rename('read', dropTarget=True, session=session)
+        db.create_collection('write', session=session)
         session.commit_transaction()
     print("Swap operation completed in ", time.time() - start_time, " seconds")
     print(f"Total swaps performed: {n_swaps+1}")
-    print(f"Total samples generated: {(n_swaps+1)*SWAP_THRESHOLD")
+    print(f"Total samples generated: {(n_swaps+1)*SWAP_THRESHOLD}")
     return n_swaps + 1
 
 def get_mongo_bytes(db):
