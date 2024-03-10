@@ -5,6 +5,8 @@
 - [ ] Generator
     - [x] Hook into Mongo
     - [x] Preprocessing  
+    - [ ] ID range assignment
+    - [ ] Wrapper script for distributed deployment on slurm
     - [ ] Testing
 - [ ] Manager
     - [x] Safe id iterator
