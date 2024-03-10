@@ -5,25 +5,17 @@ import torch
 import numpy as np
 import pickle
 import time
-from wirehead.defaults import SWAP_THRESHOLD, CHUNKSIZE
+from wirehead.defaults import SWAP_THRESHOLD, CHUNKSIZE, NUMCHUNKS, DEFAULT_IMG, DEFAULT_LAB
 
 ###############################
 ### Functions for generator ###
 ###############################
-def push_mongo(
-    image_bytes,
-    label_bytes,
-    id,
-    collection_bin,
-    chunkSize=CHUNKSIZE
-    ):
+def push_mongo(package_bytes,id,collection_bin,chunksize=CHUNKSIZE):
     """Pushes a chunkified serilized tuple containing two serialized (img: torch.Tensor, lab:torch.tensor)"""
-    for chunk in chunk_binobj(image_bytes, id, "image", chunkSize):
-        collection_bin.insert_one(chunk)
-    for chunk in chunk_binobj(label_bytes, id, "label", chunkSize):
+    for chunk in chunk_binobj(package_bytes, id, chunksize):
         collection_bin.insert_one(chunk)
 
-def chunk_binobj(tensor_compressed, id, kind, chunksize):
+def chunk_binobj(tensor_compressed, id, chunksize):
     """Convert chunksize from megabytes to bytes"""
     chunksize_bytes = chunksize * 1024 * 1024
     # Calculate the number of chunks
@@ -38,7 +30,6 @@ def chunk_binobj(tensor_compressed, id, kind, chunksize):
         yield {
             "id": id,
             "chunk_id": i,
-            "kind": kind,
             "chunk": bson.Binary(chunk),
         }
 
@@ -111,5 +102,64 @@ def get_mongo_write_size(db):
     """Returns the number of samples in the write half of mongo"""
     raise NotImplementedError()
 
+
+#############################
+### Functions for dataset ###
+#############################
+def read_mongo(collection_bin, chunk_size=CHUNKSIZE):
+    # Get the distinct IDs of the records in the collection
+    record_ids = collection_bin.distinct("id")
+    
+    # Iterate over each record ID
+    for record_id in record_ids:
+        # Find all the chunks for the current record ID
+        chunks = list(collection_bin.find({"id": record_id}).sort("chunk_id"))
+        # Reassemble the chunks into the original binary data
+        binary_data = b""
+        for chunk in chunks:
+            binary_data += chunk["chunk"]
+        
+        # Deserialize the binary data into the original tuple
+        package = pickle.loads(binary_data)
+        
+        # Deserialize the image and label tensors
+        img_tensor = bin2tensor(package[0])
+        lab_tensor = bin2tensor(package[1])
+        
+        # Yield the reconstructed record
+        yield record_id, img_tensor, lab_tensor
+
+def safe_fetch(collection_bin, id_iterator, nchunks=NUMCHUNKS, max_fetches = 10, fetches = 0): 
+    chunks = chunks = list(collection_bin.find({"id": next(id_iterator)}).sort("chunk_id"))
+    while (len(chunks) != nchunks and fetches < max_fetches):
+        chunks = safe_fetch(collection_bin, next(id_iterator))
+        fetches += 1 
+    if fetches >= max_fetches:
+        return DEFAULT_IMG, DEFAULT_LAB
+    data = b"".join(chunk["chunk"] for chunk in chunks)
+    package = pickle.loads(data)
+    img = bin2tensor(package[0])
+    lab = bin2tensor(package[1])
+    return img, lab
+
+def id_iterator(collection_bin) -> int:
+    """Yields a valid id from the current collection, hopefully safely"""
+    idx = 0
+    id_list = collection_bin.distinct('id')
+    while True:
+        yield id_list[idx % len(collection_bin.distinct('id'))]
+        id_list = collection_bin.distinct('id')
+        idx = (idx + 1) % len(id_list-1)
+    
+        
+
+def bin2tensor(binary_data):
+    """Deserialize a binary buffer into a torch tensor"""
+    buffer = io.BytesIO(binary_data)
+    tensor = torch.load(buffer)
+    return tensor
+
+
 if __name__=="__main__":
     print("This file contains functions that are used by other components of wirehead")
+
