@@ -7,8 +7,9 @@
     - [x] Preprocessing  
     - [ ] Testing
 - [ ] Manager
-    - [ ] Safe id iterator (*) __this is non trivial__
-    - [ ] Safe singly get package function
+    - [x] Safe id iterator
+        - [ ] (Optional) Figure out what to do in the unhappy code path 
+    - [ ] Safe singly get package function (*)
     - [ ] Safe swap function
     - [ ] Testing
 - [ ] Dataset
