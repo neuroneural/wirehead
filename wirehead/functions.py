@@ -41,8 +41,6 @@ def tensor2bin(tensor: torch.Tensor) -> bytes:
     tensor_binary = buffer.getvalue()
     return tensor_binary
 
-
-
 def get_np_tensor_info(tensor: np.ndarray):
     """ Prints out information about a numpy ndarray"""
     min_value = np.min(tensor)
@@ -66,33 +64,50 @@ def preprocess_image_min_max(img:np.ndarray)->np.ndarray:
     img = ((img - img.min()) / (img.max() - img.min()))
     return img
 
-
-
-
-
 #############################
 ### Functions for manager ###
 #############################
-def swap_mongo(db, n_swaps=0, debug=False):
-    """
-    Atomically swaps the read and write halves of mongo wirehead
-    Input:
-        db:                 : mongo database
-        n_swaps (optional)  : total number of swaps
-        debug (optional)    : toggles printing stats
-    Returns (optional): 
-        n_swaps + 1         : total number of swaps + 1
-    """
+def swap_collections(db):
+    global total_records
     start_time = time.time()
-    with db.client.start_session() as session:
-        session.start_transaction()
-        db['write'].rename('read', dropTarget=True, session=session)
-        db.create_collection('write', session=session)
-        session.commit_transaction()
-    print("Swap operation completed in ", time.time() - start_time, " seconds")
-    print(f"Total swaps performed: {n_swaps+1}")
-    print(f"Total samples generated: {(n_swaps+1)*SWAP_THRESHOLD}")
-    return n_swaps + 1
+    # Create a new collection with a temporary name
+    temp_collection_name = 'temp_collection'
+    create_capped_collection(db, temp_collection_name, max_size=100000, max_documents=10000)
+    package_ids = db['write'].distinct('id')    # Get the distinct package IDs in the 'write' collection
+    for package_id in package_ids:              # Iterate over each package ID
+        # Find all the chunks for the current package ID in the 'write' collection
+        chunks = list(db['write'].find({'id': package_id}).sort([('chunk_id', 1)]))
+        # Update the chunk IDs to maintain the insertion order
+        for i, chunk in enumerate(chunks):
+            chunk['chunk_id'] = i
+            db[temp_collection_name].insert_one(chunk)
+    db['read'].drop()                           # Drop the 'read' collection
+    db['write'].rename('read')                  # Rename the 'write' collection to 'read'
+    db[temp_collection_name].rename('write')    # Rename the temporary collection to 'write'
+    total_records = 0                           # reset the count for the database
+    print("Swap operation completed in", time.time() - start_time, "seconds")
+    print(f"Total samples generated: {total_records}")
+
+def create_capped_collection(db, collection_name, max_samples):
+    # Calculate the maximum size based on the number of samples
+    max_size = max_samples * ((256*256*256) * 2) + 1024*10# Packet size + a buffer
+    if collection_name not in db.list_collection_names():
+        db.create_collection(collection_name, capped=True, size=max_size)
+    return db[collection_name]
+
+def remove_invalid_chunks(collection, expected_chunks=NUMCHUNKS, DEBUG=False):
+    # Get all distinct IDs in the collection
+    distinct_ids = collection.distinct('id')
+    # Iterate over each distinct ID
+    for id_value in distinct_ids:
+        # Count the number of chunks associated with the current ID
+        chunk_count = collection.count_documents({'id': id_value})
+        # Check if the chunk count matches the expected number of chunks
+        if chunk_count != expected_chunks:
+            # Remove all documents with the invalid ID
+            collection.delete_many({'id': id_value})
+            if DEBUG: print(f"Removed {chunk_count} chunks for ID: {id_value}")
+    if DEBUG: print("Finished removing invalid chunks.")
 
 def get_mongo_bytes(db):
     """Returns the size of mongo read and write halves in bytes"""
@@ -102,34 +117,13 @@ def get_mongo_write_size(db):
     """Returns the number of samples in the write half of mongo"""
     raise NotImplementedError()
 
-
 #############################
 ### Functions for dataset ###
 #############################
-def read_mongo(collection_bin, chunk_size=CHUNKSIZE):
-    # Get the distinct IDs of the records in the collection
-    record_ids = collection_bin.distinct("id")
-    
-    # Iterate over each record ID
-    for record_id in record_ids:
-        # Find all the chunks for the current record ID
-        chunks = list(collection_bin.find({"id": record_id}).sort("chunk_id"))
-        # Reassemble the chunks into the original binary data
-        binary_data = b""
-        for chunk in chunks:
-            binary_data += chunk["chunk"]
-        
-        # Deserialize the binary data into the original tuple
-        package = pickle.loads(binary_data)
-        
-        # Deserialize the image and label tensors
-        img_tensor = bin2tensor(package[0])
-        lab_tensor = bin2tensor(package[1])
-        
-        # Yield the reconstructed record
-        yield record_id, img_tensor, lab_tensor
-
-def safe_fetch(collection_bin, id_iterator, nchunks=NUMCHUNKS, max_fetches = 10, fetches = 0, DEBUG=False): 
+def safe_fetch( collection_bin, id_iterator, 
+                nchunks=NUMCHUNKS, max_fetches = 10,
+                fetches = 0, DEBUG=False) -> (torch.Tensor, torch.Tensor):
+    """Safely returns a image label pair from a mongodb collection"""
     chunks = chunks = list(collection_bin.find({"id": next(id_iterator)}).sort("chunk_id"))
     while (len(chunks) != nchunks and fetches < max_fetches):
         chunks = safe_fetch(collection_bin, id_iterator)
@@ -140,8 +134,7 @@ def safe_fetch(collection_bin, id_iterator, nchunks=NUMCHUNKS, max_fetches = 10,
     package = pickle.loads(data)
     img = bin2tensor(package[0])
     lab = bin2tensor(package[1])
-    if DEBUG:
-        print(f"{time.time()} {chunks[0]['id']}")
+    if DEBUG: print(f"{time.time()} {chunks[0]['id']}")
     return img, lab
 
 def id_iterator(collection_bin, DEBUG = False) -> int:
@@ -150,22 +143,18 @@ def id_iterator(collection_bin, DEBUG = False) -> int:
     id_list = collection_bin.distinct('id')
     while True:
         try:
-            if DEBUG:
-                print(f'Debug: {len(id_list)}')
+            if DEBUG: print(f'Debug: {len(id_list)}')
             yield id_list[idx % SWAP_THRESHOLD]
             id_list = collection_bin.distinct('id')
             idx = (idx + 1) % SWAP_THRESHOLD
         except:
-            if DEBUG:
-                print(f'Debug: idx out of range')
+            if DEBUG: print(f'Debug: idx out of range')
             """Note to self: this can lead to unintended consequences 
             when plugged into the sample fetcher. There are no guarantees
             that the idx 0 will have all of its chunks in the database"""
             idx = 0
             yield id_list[idx]
    
-        
-
 def bin2tensor(binary_data):
     """Deserialize a binary buffer into a torch tensor"""
     buffer = io.BytesIO(binary_data)
