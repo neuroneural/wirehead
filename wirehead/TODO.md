@@ -9,8 +9,9 @@
 - [ ] Manager
     - [x] Safe id iterator
         - [ ] (Optional) Figure out what to do in the unhappy code path 
-    - [ ] Safe singly get package function (*)
+    - [x] Safe singly get package function. __done, but this is somewhat slow due to exception handling__
     - [ ] Safe swap function
+        - [ ] Make a different collection called 'ids' that contains only ids for valid packages
     - [ ] Testing
 - [ ] Dataset
     - [ ] Hook into new manager, hopefully can reuse MongoDataset from mindfultensors

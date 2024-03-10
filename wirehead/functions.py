@@ -129,10 +129,10 @@ def read_mongo(collection_bin, chunk_size=CHUNKSIZE):
         # Yield the reconstructed record
         yield record_id, img_tensor, lab_tensor
 
-def safe_fetch(collection_bin, id_iterator, nchunks=NUMCHUNKS, max_fetches = 10, fetches = 0): 
+def safe_fetch(collection_bin, id_iterator, nchunks=NUMCHUNKS, max_fetches = 10, fetches = 0, DEBUG=False): 
     chunks = chunks = list(collection_bin.find({"id": next(id_iterator)}).sort("chunk_id"))
     while (len(chunks) != nchunks and fetches < max_fetches):
-        chunks = safe_fetch(collection_bin, next(id_iterator))
+        chunks = safe_fetch(collection_bin, id_iterator)
         fetches += 1 
     if fetches >= max_fetches:
         return DEFAULT_IMG, DEFAULT_LAB
@@ -140,6 +140,8 @@ def safe_fetch(collection_bin, id_iterator, nchunks=NUMCHUNKS, max_fetches = 10,
     package = pickle.loads(data)
     img = bin2tensor(package[0])
     lab = bin2tensor(package[1])
+    if DEBUG:
+        print(f"{time.time()} {chunks[0]['id']}")
     return img, lab
 
 def id_iterator(collection_bin, DEBUG = False) -> int:
