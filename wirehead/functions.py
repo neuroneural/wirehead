@@ -142,15 +142,26 @@ def safe_fetch(collection_bin, id_iterator, nchunks=NUMCHUNKS, max_fetches = 10,
     lab = bin2tensor(package[1])
     return img, lab
 
-def id_iterator(collection_bin) -> int:
+def id_iterator(collection_bin, DEBUG = False) -> int:
     """Yields a valid id from the current collection, hopefully safely"""
     idx = 0
     id_list = collection_bin.distinct('id')
     while True:
-        yield id_list[idx % len(collection_bin.distinct('id'))]
-        id_list = collection_bin.distinct('id')
-        idx = (idx + 1) % len(id_list-1)
-    
+        try:
+            if DEBUG:
+                print(f'Debug: {len(id_list)}')
+            yield id_list[idx % SWAP_THRESHOLD]
+            id_list = collection_bin.distinct('id')
+            idx = (idx + 1) % SWAP_THRESHOLD
+        except:
+            if DEBUG:
+                print(f'Debug: idx out of range')
+            """Note to self: this can lead to unintended consequences 
+            when plugged into the sample fetcher. There are no guarantees
+            that the idx 0 will have all of its chunks in the database"""
+            idx = 0
+            yield id_list[idx]
+   
         
 
 def bin2tensor(binary_data):
