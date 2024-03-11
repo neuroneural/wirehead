@@ -10,13 +10,20 @@ from wirehead.defaults import SWAP_THRESHOLD, CHUNKSIZE, NUMCHUNKS, DEFAULT_IMG,
 ###############################
 ### Functions for generator ###
 ###############################
-def push_mongo(package_bytes,id,collection_bin,chunksize=CHUNKSIZE):
-    """Pushes a chunkified serilized tuple containing two serialized (img: torch.Tensor, lab:torch.tensor)"""
-    for chunk in chunk_binobj(package_bytes, id, chunksize):
+def push_mongo(package, id, collection_bin, chunksize=CHUNKSIZE):
+    """Pushes a chunkified serialized tuple containing two serialized (img: torch.Tensor, lab:torch.tensor)"""
+    data_tensor, label_tensor = package
+    data_bytes = tensor2bin(data_tensor)
+    label_bytes = tensor2bin(label_tensor)
+
+    for chunk in chunk_binobj(data_bytes, id, "data", chunksize):
         collection_bin.insert_one(chunk)
 
-def chunk_binobj(tensor_compressed, id, chunksize):
-    """Convert chunksize from megabytes to bytes"""
+    for chunk in chunk_binobj(label_bytes, id, "label", chunksize):
+        collection_bin.insert_one(chunk)
+
+def chunk_binobj(tensor_compressed, id, kind, chunksize):
+    # Convert chunksize from megabytes to bytes
     chunksize_bytes = chunksize * 1024 * 1024
     # Calculate the number of chunks
     num_chunks = len(tensor_compressed) // chunksize_bytes
@@ -30,6 +37,7 @@ def chunk_binobj(tensor_compressed, id, chunksize):
         yield {
             "id": id,
             "chunk_id": i,
+            "kind": kind,
             "chunk": bson.Binary(chunk),
         }
 
@@ -109,6 +117,70 @@ def remove_invalid_chunks(collection, expected_chunks=NUMCHUNKS, DEBUG=False):
             if DEBUG: print(f"Removed {chunk_count} chunks for ID: {id_value}")
     if DEBUG: print("Finished removing invalid chunks.")
 
+def drop_incomplete_samples(collection_bin, sample_kinds, expected_chunks=NUMCHUNKS):
+    """Drops samples from the MongoDB collection that have incomplete chunks"""
+    # Get all distinct sample IDs in the collection
+    sample_ids = collection_bin.distinct("id")
+    
+    # Iterate over each sample ID
+    for sample_id in sample_ids:
+        # Count the number of data chunks for the current sample ID
+        data_chunk_count = collection_bin.count_documents(
+            {
+                "id": sample_id,
+                "kind": sample_kinds[0]
+            }
+        )
+        # Count the number of label chunks for the current sample ID
+        label_chunk_count = collection_bin.count_documents(
+            {
+                "id": sample_id,
+                "kind": sample_kinds[1]
+            }
+        )
+        # Check if the chunk counts match the expected number of chunks
+        if data_chunk_count != expected_chunks or label_chunk_count != expected_chunks:
+            # Drop all chunks associated with the incomplete sample ID
+            collection_bin.delete_many(
+                {
+                    "id": sample_id
+                }
+            )
+            print(f"Dropped sample ID: {sample_id}")
+    print("Finished dropping incomplete samples.")
+
+def swap_db(db, DEBUG=False):
+    if DEBUG: start_time = time.time()
+
+    db['write'].rename('temp')                              # Create a temp record for processing
+    temp = db['temp']
+    create_capped_collection(db, 'write', SWAP_THRESHOLD)   # Create a new write collection 
+    drop_incomplete_samples(temp, ('data', 'label'))        # Drop incomplete packages from record 
+    map_contiguous_ids(temp)                                # Convert IDs into contiguous mapping
+    db['temp'].rename('read', dropTarget = True)            # Change the temp into the read collection
+
+    if DEBUG: print("Swap operation completed in", time.time() - start_time, "seconds")
+
+
+def map_contiguous_ids(collection_bin, DEBUG=False):
+    if DEBUG: start = time.time()
+    # Get all distinct sample IDs in the collection
+    distinct_ids = collection_bin.distinct("id")
+    
+    # Sort the distinct IDs
+    sorted_ids = sorted(distinct_ids)
+    
+    # Create a dictionary to map original sample IDs to contiguous IDs
+    id_map = {id: contiguous_id for contiguous_id, id in enumerate(sorted_ids)}
+    
+    # Update each document in the collection with the contiguous ID
+    for original_id, contiguous_id in id_map.items():
+        collection_bin.update_many(
+            {"id": original_id},
+            {"$set": {"id": contiguous_id}}
+        )
+    if DEBUG: print(f'Swap took {time.time() - start}') 
+
 def get_mongo_bytes(db):
     """Returns the size of mongo read and write halves in bytes"""
     raise NotImplementedError()
@@ -120,6 +192,60 @@ def get_mongo_write_size(db):
 #############################
 ### Functions for dataset ###
 #############################
+def safe_fetch_separate(collection_bin, id_iterator, sample_kinds,
+                        nchunks=NUMCHUNKS, max_fetches=10,
+                        fetches=0, DEBUG=False) -> (torch.Tensor, torch.Tensor):
+    """Safely returns an image-label pair from a MongoDB collection"""
+    try:
+        sample_id = next(id_iterator)
+        
+        data_chunks = list(collection_bin.find(
+            {
+                "id": sample_id,
+                "kind": sample_kinds[0]
+            },
+            {"_id": 0, "chunk": 1}
+        ).sort("chunk_id"))
+        
+        label_chunks = list(collection_bin.find(
+            {
+                "id": sample_id,
+                "kind": sample_kinds[1]
+            },
+            {"_id": 0, "chunk": 1}
+        ).sort("chunk_id"))
+        if len(data_chunks) != nchunks or len(label_chunks) != nchunks:
+            if fetches < max_fetches:
+                return safe_fetch_separate(collection_bin, id_iterator, sample_kinds, nchunks, max_fetches, fetches + 1, DEBUG)
+            else:
+                return DEFAULT_IMG, DEFAULT_LAB
+        data_binary = b"".join(chunk["chunk"] for chunk in data_chunks)
+        label_binary = b"".join(chunk["chunk"] for chunk in label_chunks)
+        img_tensor = bin2tensor(data_binary)
+        lab_tensor = bin2tensor(label_binary)
+        if DEBUG: print(f"{time.time()} {sample_id}")
+        return img_tensor, lab_tensor
+
+    except StopIteration:
+        # Handle the case when the iterator is exhausted
+        return DEFAULT_IMG, DEFAULT_LAB
+def safe_fetch( collection_bin, id_iterator, 
+                nchunks=NUMCHUNKS, max_fetches = 10,
+                fetches = 0, DEBUG=False) -> (torch.Tensor, torch.Tensor):
+    """Safely returns a image label pair from a mongodb collection"""
+    chunks = chunks = list(collection_bin.find({"id": next(id_iterator)}).sort("chunk_id"))
+    while (len(chunks) != nchunks and fetches < max_fetches):
+        chunks = safe_fetch(collection_bin, id_iterator)
+        fetches += 1 
+    if fetches >= max_fetches:
+        return DEFAULT_IMG, DEFAULT_LAB
+    data = b"".join(chunk["chunk"] for chunk in chunks)
+    package = pickle.loads(data)
+    img = bin2tensor(package[0])
+    lab = bin2tensor(package[1])
+    if DEBUG: print(f"{time.time()} {chunks[0]['id']}")
+    return img, lab
+
 def safe_fetch( collection_bin, id_iterator, 
                 nchunks=NUMCHUNKS, max_fetches = 10,
                 fetches = 0, DEBUG=False) -> (torch.Tensor, torch.Tensor):
