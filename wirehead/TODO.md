@@ -5,7 +5,7 @@
 - [ ] Generator
     - [x] Hook into Mongo
     - [x] Preprocessing  
-    - [ ] Rewrite pushing function to use Sergey's schema
+    - [x] Rewrite pushing function to use Sergey's schema
     - [ ] ID range assignment
     - [ ] Wrapper script for distributed deployment on slurm
     - [ ] Testing
@@ -14,9 +14,14 @@
         - [ ] (Optional) Figure out what to do in the unhappy code path 
     - [x] Safe singly get package function. __done, but this is somewhat slow due to exception handling__
     - [ ] Safe swap function
-        - [ ] Make a different collection called 'ids' that contains only ids for valid packages
+        - [x] create temp collection (because transactions aren't allowed now :/)
+        - [x] remove all incomplete packages
+        - [x] convert labels into contiguous collection.distinct -> sorted -> map (idx, order) 
+        - [ ] rename to read
+        - [ ] test
     - [ ] Testing
 - [ ] Dataset
     - [ ] hopefully can reuse MongoDataset from mindfultensors
+        - [ ] Read database must be contiguous indices [0..n]
     - [ ] Testing
 
