@@ -84,26 +84,40 @@ def preprocess_image_min_max(img:np.ndarray)->np.ndarray:
 #############################
 ### Functions for manager ###
 #############################
-def swap_collections(db):
+def swap_db(db, DEBUG=False):
+    if DEBUG: start_time = time.time()
+
+    db['write']['bin'].rename('temp', dropTarget=True)                              # Create a temp record for processing
+    temp = db['temp']
+    create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
+    drop_incomplete_samples(temp, ('data', 'label'))        # Drop incomplete packages from record 
+    map_contiguous_ids(temp)                                # Convert IDs into contiguous mapping
+    db['temp'].rename('read.bin', dropTarget = True)            # Change the temp into the read collection
+
+    if DEBUG: print("Swap operation completed in", time.time() - start_time, "seconds")
+
+def monitor_insertions(db, DEBUG=False):
     global total_records
-    start_time = time.time()
-    # Create a new collection with a temporary name
-    temp_collection_name = 'temp_collection'
-    create_capped_collection(db, temp_collection_name, max_size=100000, max_documents=10000)
-    package_ids = db['write'].distinct('id')    # Get the distinct package IDs in the 'write' collection
-    for package_id in package_ids:              # Iterate over each package ID
-        # Find all the chunks for the current package ID in the 'write' collection
-        chunks = list(db['write'].find({'id': package_id}).sort([('chunk_id', 1)]))
-        # Update the chunk IDs to maintain the insertion order
-        for i, chunk in enumerate(chunks):
-            chunk['chunk_id'] = i
-            db[temp_collection_name].insert_one(chunk)
-    db['read'].drop()                           # Drop the 'read' collection
-    db['write'].rename('read')                  # Rename the 'write' collection to 'read'
-    db[temp_collection_name].rename('write')    # Rename the temporary collection to 'write'
-    total_records = 0                           # reset the count for the database
-    print("Swap operation completed in", time.time() - start_time, "seconds")
-    print(f"Total samples generated: {total_records}")
+    total_records = 0
+    write_collection = db['write']
+    last_inserted_id = None
+
+    while True:
+        if last_inserted_id is None:
+            query = {}
+        else:
+            query = {'_id': {'$gt': last_inserted_id}}
+
+        new_records = list(write_collection.find(query))
+        if new_records:
+            last_inserted_id = new_records[-1]['_id']
+            total_records += len(new_records)
+
+            if total_records >= SWAP_THRESHOLD:
+                swap_db(db, DEBUG=True)
+
+        if DEBUG: print(f'Total records: {total_records}')
+        time.sleep(1)  # Adjust the polling interval as needed
 
 def create_capped_collection(db, collection_name, max_samples):
     # Calculate the maximum size based on the number of samples
@@ -158,18 +172,6 @@ def drop_incomplete_samples(collection_bin, sample_kinds, expected_chunks=NUMCHU
             print(f"Dropped sample ID: {sample_id}")
     print("Finished dropping incomplete samples.")
 
-def swap_db(db, DEBUG=False):
-    if DEBUG: start_time = time.time()
-
-    db['write'].rename('temp')                              # Create a temp record for processing
-    temp = db['temp']
-    create_capped_collection(db, 'write', SWAP_THRESHOLD)   # Create a new write collection 
-    drop_incomplete_samples(temp, ('data', 'label'))        # Drop incomplete packages from record 
-    map_contiguous_ids(temp)                                # Convert IDs into contiguous mapping
-    db['temp'].rename('read', dropTarget = True)            # Change the temp into the read collection
-
-    if DEBUG: print("Swap operation completed in", time.time() - start_time, "seconds")
-
 
 def map_contiguous_ids(collection_bin, DEBUG=False):
     if DEBUG: start = time.time()
@@ -189,6 +191,18 @@ def map_contiguous_ids(collection_bin, DEBUG=False):
             {"$set": {"id": contiguous_id}}
         )
     if DEBUG: print(f'Swap took {time.time() - start}') 
+
+def reset_capped_collections(db, max_samples = SWAP_THRESHOLD):
+    # Check if the collections already exist
+    if 'write' in db.list_collection_names():
+        db.drop_collection('write')
+    if 'read' in db.list_collection_names():
+        db.drop_collection('read')
+
+    # Create the capped collections with the specified size limit
+    create_capped_collection(db, 'read', max_samples=max_samples)
+    create_capped_collection(db, 'write', max_samples=max_samples)
+    print(f"Capped collections '{'write'}' and '{'read'}' have been reset.")
 
 def get_mongo_bytes(db):
     """Returns the size of mongo read and write halves in bytes"""
