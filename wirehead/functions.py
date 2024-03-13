@@ -22,6 +22,15 @@ def push_mongo(package, id, collection_bin, chunksize=CHUNKSIZE):
     for chunk in chunk_binobj(label_bytes, id, "label", chunksize):
         collection_bin.insert_one(chunk)
 
+def gen_id_iterator(id_range):
+    id_start, id_end = id_range
+    current_id = id_start
+    while True:
+        yield current_id
+        current_id += 1
+        if current_id > id_end:
+            current_id = id_start
+
 def chunk_binobj(tensor_compressed, id, kind, chunksize):
     # Convert chunksize from megabytes to bytes
     chunksize_bytes = chunksize * 1024 * 1024
