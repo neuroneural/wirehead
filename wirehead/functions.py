@@ -89,11 +89,11 @@ def preprocess_image_min_max(img:np.ndarray)->np.ndarray:
 def swap_db(db, DEBUG=False):
     if DEBUG: start_time = time.time()
 
-    db['write']['bin'].rename('temp', dropTarget=True)                              # Create a temp record for processing
+    db['write']['bin'].rename('temp', dropTarget=True)          # Create a temp record for processing
     temp = db['temp']
     create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
-    drop_incomplete_samples(temp, ('data', 'label'))        # Drop incomplete packages from record 
-    map_contiguous_ids3(temp)                                # Convert IDs into contiguous mapping
+    drop_incomplete_samples(temp, ('data', 'label'))            # Drop incomplete packages from record 
+    map_contiguous_ids3(temp)                                   # Convert IDs into contiguous mapping
     db['temp'].rename('read.bin', dropTarget = True)            # Change the temp into the read collection
 
     if DEBUG: print("Swap operation completed in", time.time() - start_time, "seconds")
@@ -101,25 +101,19 @@ def swap_db(db, DEBUG=False):
 def monitor_insertions(db, DEBUG=False):
     global total_records
     total_records = 0
-    write_collection = db['write']
-    last_inserted_id = None
+    read_count = 0
+    write_collection = db['write']['bin']
 
     while True:
-        if last_inserted_id is None:
-            query = {}
-        else:
-            query = {'_id': {'$gt': last_inserted_id}}
-
-        new_records = list(write_collection.find(query))
-        if new_records:
-            last_inserted_id = new_records[-1]['_id']
-            total_records += len(new_records)
-
-            if total_records >= SWAP_THRESHOLD:
-                swap_db(db, DEBUG=True)
-
-        if DEBUG: print(f'Total records: {total_records}')
-        time.sleep(1)  # Adjust the polling interval as needed
+        write_count = len(write_collection.distinct('id'))
+        print(f"Write: {write_count}, Read: {read_count}, Time: {time.time()}")
+        if write_count>= SWAP_THRESHOLD:
+            swap_db(db, DEBUG=True)
+            total_records += write_count
+            print(f'Total records seen: {total_records}')
+            read_count = write_count
+        #if DEBUG: print(f'Total records: {total_records}')
+        time.sleep(10)  # Adjust the polling interval as needed
 
 def create_capped_collection(db, collection_name, max_samples):
     # Calculate the maximum size based on the number of samples
@@ -175,6 +169,8 @@ def drop_incomplete_samples(collection_bin, sample_kinds, expected_chunks=NUMCHU
     print("Finished dropping incomplete samples.")
 
 
+'''
+# Earlier, slower version of map_contiguous_ids 
 def map_contiguous_ids(collection_bin, DEBUG=False):
     if DEBUG: start = time.time()
     # Get all distinct sample IDs in the collection
@@ -219,12 +215,14 @@ def map_contiguous_ids2(collection_bin, DEBUG=False):
     collection_bin.bulk_write(bulk_operations)
     
     if DEBUG: print(f'Swap took {time.time() - start}')
+'''
 
 
 def update_chunk(chunk, db_name, collection_name):
-    client = MongoClient('mongodb://arctrdcn018:27017/')  # Establish a new MongoDB connection for each worker process
-    db = client['wirehead_test']
-    collection = db['read']['bin']
+    """ Sends a bulk job to mongodb to update ids using a mapping """ 
+    client = MongoClient('mongodb://arctrdcn018:27017/')  # TODO: Hardcoded
+    db = client[db_name]
+    collection = db[collection_name]
     
     bulk_operations = []
     for original_id, contiguous_id in chunk:
@@ -239,6 +237,7 @@ def update_chunk(chunk, db_name, collection_name):
     client.close()  # Close the MongoDB connection when done
 
 def map_contiguous_ids3(collection_bin, num_processes=10, DEBUG=False):
+    """ Multithreaded-ly maps the ids from collection_bin to a contiguous range [0.. len(collection_bin)] """
     if DEBUG: start = time.time()
     
     # Get distinct sample IDs and sort them using aggregation pipeline
@@ -265,25 +264,50 @@ def map_contiguous_ids3(collection_bin, num_processes=10, DEBUG=False):
     
     if DEBUG: print(f'Swap took {time.time() - start}')
 
+def scramble_ids(collection_bin, num_processes=10, DEBUG=False):
+    """ Test function to synthetically scramble the ids of a collection for benchmarks """
+    if DEBUG: start = time.time()
+    
+    # Get distinct sample IDs and sort them using aggregation pipeline
+    pipeline = [
+        {"$group": {"_id": "$id"}},
+        {"$sort": {"_id": 1}}
+    ]
+    sorted_ids = [doc["_id"] for doc in collection_bin.aggregate(pipeline)]
+    
+    # Create a dictionary to map original sample IDs to contiguous IDs
+    shift = len(sorted_ids)
+    id_map = {id: contiguous_id*2+10000 for contiguous_id, id in enumerate(sorted_ids)}
+    
+    # Split the id_map into chunks for parallel processing
+    chunk_size = math.ceil(len(id_map) / num_processes)
+    chunks = [list(id_map.items())[i:i+chunk_size] for i in range(0, len(id_map), chunk_size)]
+    
+    # Get the database and collection names
+    db_name = collection_bin.database.name
+    collection_name = collection_bin.name
+    
+    # Create a multiprocessing pool and update documents in parallel
+    with Pool(processes=num_processes) as pool:
+        pool.starmap(update_chunk, [(chunk, db_name, collection_name) for chunk in chunks])
+    
+    if DEBUG: print(f'Swap took {time.time() - start}')
+
+
 def reset_capped_collections(db, max_samples = SWAP_THRESHOLD):
     # Check if the collections already exist
+    if 'write.bin' in db.list_collection_names():
+        db.drop_collection('write.bin')
+    if 'read.bin' in db.list_collection_names():
+        db.drop_collection('read.bin')
     if 'write' in db.list_collection_names():
         db.drop_collection('write')
     if 'read' in db.list_collection_names():
         db.drop_collection('read')
-
     # Create the capped collections with the specified size limit
-    create_capped_collection(db, 'read', max_samples=max_samples)
-    create_capped_collection(db, 'write', max_samples=max_samples)
+    create_capped_collection(db, 'read.bin', max_samples=max_samples)
+    create_capped_collection(db, 'write.bin', max_samples=max_samples)
     print(f"Capped collections '{'write'}' and '{'read'}' have been reset.")
-
-def get_mongo_bytes(db):
-    """Returns the size of mongo read and write halves in bytes"""
-    raise NotImplementedError()
-
-def get_mongo_write_size(db):
-    """Returns the number of samples in the write half of mongo"""
-    raise NotImplementedError()
 
 #############################
 ### Functions for dataset ###
@@ -382,8 +406,3 @@ def bin2tensor(binary_data):
     buffer = io.BytesIO(binary_data)
     tensor = torch.load(buffer)
     return tensor
-
-
-if __name__=="__main__":
-    print("This file contains functions that are used by other components of wirehead")
-

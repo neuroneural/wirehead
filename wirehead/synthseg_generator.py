@@ -46,26 +46,27 @@ def preprocess_synthseg_label(lab: np.ndarray) -> np.ndarray:
 def generation_loop(collection_bin, generator, id_range, DEBUG=False):
     """Preprocessing and pushing of samples from synthseg"""
     idx = functions.gen_id_iterator(id_range)
-    if DEBUG:
-        total_time = time() 
-        generation_start = time()
-    img, lab = generator.generate_brain()
-    if DEBUG: 
-        generation_end = time() 
+    while(True):
+        if DEBUG:
+            total_time = time() 
+            generation_start = time()
+        img, lab = generator.generate_brain()
+        if DEBUG: 
+            generation_end = time() 
 
-    if DEBUG: 
-        preprocess_start = time()
-    img = functions.preprocess_image_min_max(img).astype(np.uint8) * 255 # Normalize in 0..255
-    lab = preprocess_synthseg_label(lab) # Convert to contiguous 0..255
-    img = torch.from_numpy(img)
-    lab = torch.from_numpy(lab)
-    if DEBUG: 
-        preprocess_end = time()
-    functions.push_mongo((img, lab), next(idx), collection_bin)
-    if DEBUG:
-        print(f'Generation took {generation_end - generation_start}')
-        print(f'Preprocessing took {preprocess_end - preprocess_start}')
-        print(f'In total, process took {time() - total_time}')
+        if DEBUG: 
+            preprocess_start = time()
+        img = functions.preprocess_image_min_max(img).astype(np.uint8) * 255 # Normalize in 0..255
+        lab = preprocess_synthseg_label(lab) # Convert to contiguous 0..255
+        img = torch.from_numpy(img)
+        lab = torch.from_numpy(lab)
+        if DEBUG: 
+            preprocess_end = time()
+        functions.push_mongo((img, lab), next(idx), collection_bin)
+        if DEBUG:
+            print(f'Generation took {generation_end - generation_start} seconds')
+            print(f'Preprocessing took {preprocess_end - preprocess_start} seconds')
+            print(f'In total, process took {time() - total_time} seconds')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

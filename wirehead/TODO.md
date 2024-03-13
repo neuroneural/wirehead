@@ -24,4 +24,6 @@
     - [ ] hopefully can reuse MongoDataset from mindfultensors
         - [ ] Read database must be contiguous indices [0..n]
     - [ ] Testing
-
+- [ ] Debug
+    - [ ] Make a script that can push random samples to the database super fast (1000 in seconds, not minutes)
+    
