@@ -1,10 +1,12 @@
 import io
 import bson
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateMany
 import torch
 import numpy as np
 import pickle
 import time
+import math
+from multiprocessing import Pool
 from wirehead.defaults import SWAP_THRESHOLD, CHUNKSIZE, NUMCHUNKS, DEFAULT_IMG, DEFAULT_LAB
 
 ###############################
@@ -91,7 +93,7 @@ def swap_db(db, DEBUG=False):
     temp = db['temp']
     create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
     drop_incomplete_samples(temp, ('data', 'label'))        # Drop incomplete packages from record 
-    map_contiguous_ids(temp)                                # Convert IDs into contiguous mapping
+    map_contiguous_ids3(temp)                                # Convert IDs into contiguous mapping
     db['temp'].rename('read.bin', dropTarget = True)            # Change the temp into the read collection
 
     if DEBUG: print("Swap operation completed in", time.time() - start_time, "seconds")
@@ -191,6 +193,77 @@ def map_contiguous_ids(collection_bin, DEBUG=False):
             {"$set": {"id": contiguous_id}}
         )
     if DEBUG: print(f'Swap took {time.time() - start}') 
+
+def map_contiguous_ids2(collection_bin, DEBUG=False):
+    if DEBUG: start = time.time()
+    
+    # Get distinct sample IDs and sort them using aggregation pipeline
+    pipeline = [
+        {"$group": {"_id": "$id"}},
+        {"$sort": {"_id": 1}}
+    ]
+    sorted_ids = [doc["_id"] for doc in collection_bin.aggregate(pipeline)]
+    
+    # Create a dictionary to map original sample IDs to contiguous IDs
+    id_map = {id: contiguous_id for contiguous_id, id in enumerate(sorted_ids)}
+    
+    # Update documents in bulk using bulk_write()
+    bulk_operations = []
+    for original_id, contiguous_id in id_map.items():
+        bulk_operations.append(
+            UpdateMany(
+                {"id": original_id},
+                {"$set": {"id": contiguous_id}}
+            )
+        )
+    collection_bin.bulk_write(bulk_operations)
+    
+    if DEBUG: print(f'Swap took {time.time() - start}')
+
+
+def update_chunk(chunk, db_name, collection_name):
+    client = MongoClient('mongodb://arctrdcn018:27017/')  # Establish a new MongoDB connection for each worker process
+    db = client['wirehead_test']
+    collection = db['read']['bin']
+    
+    bulk_operations = []
+    for original_id, contiguous_id in chunk:
+        bulk_operations.append(
+            UpdateMany(
+                {"id": original_id},
+                {"$set": {"id": contiguous_id}}
+            )
+        )
+    collection.bulk_write(bulk_operations)
+    
+    client.close()  # Close the MongoDB connection when done
+
+def map_contiguous_ids3(collection_bin, num_processes=10, DEBUG=False):
+    if DEBUG: start = time.time()
+    
+    # Get distinct sample IDs and sort them using aggregation pipeline
+    pipeline = [
+        {"$group": {"_id": "$id"}},
+        {"$sort": {"_id": 1}}
+    ]
+    sorted_ids = [doc["_id"] for doc in collection_bin.aggregate(pipeline)]
+    
+    # Create a dictionary to map original sample IDs to contiguous IDs
+    id_map = {id: contiguous_id for contiguous_id, id in enumerate(sorted_ids)}
+    
+    # Split the id_map into chunks for parallel processing
+    chunk_size = math.ceil(len(id_map) / num_processes)
+    chunks = [list(id_map.items())[i:i+chunk_size] for i in range(0, len(id_map), chunk_size)]
+    
+    # Get the database and collection names
+    db_name = collection_bin.database.name
+    collection_name = collection_bin.name
+    
+    # Create a multiprocessing pool and update documents in parallel
+    with Pool(processes=num_processes) as pool:
+        pool.starmap(update_chunk, [(chunk, db_name, collection_name) for chunk in chunks])
+    
+    if DEBUG: print(f'Swap took {time.time() - start}')
 
 def reset_capped_collections(db, max_samples = SWAP_THRESHOLD):
     # Check if the collections already exist
