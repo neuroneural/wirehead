@@ -1,17 +1,16 @@
-import os
+# Creates a Synthseg brain generator and continuously pushees to MongoDB 
 import sys
-import torch
 import random
-import pickle
 import argparse
-import numpy as np
 from time import time
+
+import torch
+import numpy as np
 from pymongo import MongoClient
 from wirehead import defaults, functions
 ### Synthseg imports ###
 sys.path.append(defaults.SYNTHSEG_PATH)
 from SynthSeg.brain_generator import BrainGenerator
-from ext.lab2im import utils
 
 def preprocess_synthseg_label(lab: np.ndarray) -> np.ndarray:
     """Converst a label map from synthseg to a contiguous mapping 0..255"""
@@ -44,49 +43,45 @@ def preprocess_synthseg_label(lab: np.ndarray) -> np.ndarray:
         0, 0, 0], dtype='int').astype(np.uint8)
     return synthseg_label_map[lab].astype(np.uint8)
 
-def generation_loop(db, generator, gen_len, debug=False):
+def generation_loop(collection_bin, generator, id_range, DEBUG=False):
     """Preprocessing and pushing of samples from synthseg"""
-    for _ in range(gen_len):
-        total_time          = time() 
-        generation_start    = time()
-        img, lab = generator.generate_brain()
-        generation_end      = time() 
+    idx = functions.gen_id_iterator(id_range)
+    if DEBUG:
+        total_time = time() 
+        generation_start = time()
+    img, lab = generator.generate_brain()
+    if DEBUG: 
+        generation_end = time() 
 
-        preprocess_start    = time()
-        img = functions.preprocess_image_min_max(img) * 255 # Normalize in 0..255
-        img = img.astype(np.uint8) 
-        lab = functions.preprocess_label_synthseg(lab) # Convert to contiguous 0..255
-        img = functions.tensor2bin(torch.from_numpy(img)) # Convert to serialized tensor, quantized uint8
-        lab = functions.tensor2bin(torch.from_numpy(lab)) # Convert to serialized tensor, quantized uint8
-        preprocess_end      = time()
-        
-        pickle_start        = time()
-        package = (img, lab) # Package into single tuple for serialization
-        package_bytes = pickle.dumps(package)
-        pickle_end          = time()
-        functions.push_mongo(db, package_bytes)
-
-        if debug:
-            print(f'Generation took {generation_end - generation_start}')
-            print(f'Preprocessing took {preprocess_end - preprocess_end}')
-            print(f'Pickling took {pickle_end - pickle_start}')
-            print(f'In total, process took {time() - total_time}')
+    if DEBUG: 
+        preprocess_start = time()
+    img = functions.preprocess_image_min_max(img).astype(np.uint8) * 255 # Normalize in 0..255
+    lab = preprocess_synthseg_label(lab) # Convert to contiguous 0..255
+    img = torch.from_numpy(img)
+    lab = torch.from_numpy(lab)
+    if DEBUG: 
+        preprocess_end = time()
+    functions.push_mongo((img, lab), next(idx), collection_bin)
+    if DEBUG:
+        print(f'Generation took {generation_end - generation_start}')
+        print(f'Preprocessing took {preprocess_end - preprocess_start}')
+        print(f'In total, process took {time() - total_time}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--client',     help = "Mongo client hosting wirehead")
     parser.add_argument('--train_seg',  help = "Segment to use for generator")
-    parser.add_argument('--gen_len',    help = "Numbre of samples to generate")
+    parser.add_argument('--id_start',   help = "Start of generator ID range")
+    parser.add_argument('--id_end',     help = "End of generator ID range")
 
-    args = parser.parse_args()
-    client = args.client if args.client else defaults.MONGO_CLIENT
-    train_seg = args.training_seg if args.train_seg else random.choice(defaults.DATA_FILES)
+    args        = parser.parse_args()
+    client_name = args.client if args.client else defaults.MONGO_CLIENT
+    train_seg   = args.training_seg if args.train_seg else random.choice(defaults.DATA_FILES)
+    id_start    = args.id_start if args.id_start else 0
+    id_end      = args.id_end if args.id_end else defaults.SWAP_THRESHOLD
 
-    gen_len = args.gen_len if args.gen_len else  defaults.GENERATOR_LENGTH
-
-    client = MongoClient(client)    
+    client = MongoClient(client_name)    
     db = client[defaults.MONGO_DBNAME]
-    generator = BrainGenerator(defaults.PATH_TO_DATA + train_seg)
-    generation_loop(db, generator, gen_len, debug=True)
-
-
+    write_col = db['write']['bin']
+    generator = BrainGenerator(defaults.DATA_PATH+ train_seg)
+    generation_loop(write_col, generator, (id_start, id_end), DEBUG=True)
