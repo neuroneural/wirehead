@@ -8,3 +8,6 @@ There are 3 core files to wirehead that should be run
 The other files contain utilities for the above files
 - functions : contains networking, interfaces, preprocess and de-preprocessing functions
 - defaults  : contains convenient defaults that are used globally in wirehead. some of these are custom to the arctic cluster used at trends
+
+To reset the database safely, you should probably only do it manually:
+
