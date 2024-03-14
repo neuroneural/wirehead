@@ -28,4 +28,7 @@
     - [ ] Testing
 - [ ] Debug
     - [ ] Make a script that can push random samples to the database super fast (1000 in seconds, not minutes)
+
+- [ ] Misc
+    - [ ] Fix local imports (synthseg_generate.py cannot import wirehead modules for example)
     
