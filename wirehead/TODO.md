@@ -36,7 +36,14 @@
     - [ ] **Potentially infinite samples inside database**: push_db implicitly creates a collection. workers continuously will push a sample to mongo even if there are no collections. 
         - [ ] Capped collections would solve this, but:
         - [ ] swap_db is unfortunately still unsafe. Attempting to recreate the capped write.bin collection after it is dropped will usually cause the manager to terminate.
+
         > hotfix: capped collection creation is removed from swap_db
+
         > side effect: leads to the big issue at top 
+
     > side effect: this makes it really hard to test the dataloader during edge cases (such as swapping), as there could be 10000 samples, which takes a long time to swap.
+
         > hotfix: manually resetting the database, lowering the SWAP_THRESHOLD, and restarting the manager
+    
+    - [ ] **Swaps take longer than it takes to fill up the daatbase** Self explanatory
+    
