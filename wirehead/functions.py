@@ -1,27 +1,33 @@
 import io
 import bson
+
+from concurrent.futures import ThreadPoolExecutor
 from pymongo import MongoClient, UpdateMany
+from multiprocessing import Pool
+
 import torch
 import numpy as np
 import pickle
 import time
 import math
-from multiprocessing import Pool
 from wirehead.defaults import SWAP_THRESHOLD, CHUNKSIZE, NUMCHUNKS, DEFAULT_IMG, DEFAULT_LAB
 
 ###############################
 ### Functions for generator ###
 ###############################
-def push_mongo(package, id, collection_bin, chunksize=CHUNKSIZE):
+def push_mongo(package, id, db, chunksize=CHUNKSIZE):
     """Pushes a chunkified serialized tuple containing two serialized (img: torch.Tensor, lab:torch.tensor)"""
+    collection_bin = db['write.bin']
     data_tensor, label_tensor = package
     data_bytes = tensor2bin(data_tensor)
     label_bytes = tensor2bin(label_tensor)
 
     for chunk in chunk_binobj(data_bytes, id, "data", chunksize):
+        #collection_bin = create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
         collection_bin.insert_one(chunk)
 
     for chunk in chunk_binobj(label_bytes, id, "label", chunksize):
+        #collection_bin = create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
         collection_bin.insert_one(chunk)
 
 def gen_id_iterator(id_range):
@@ -82,18 +88,19 @@ def preprocess_image_min_max(img:np.ndarray)->np.ndarray:
     "Min max scaling preprocessing for the range 0..1"
     img = ((img - img.min()) / (img.max() - img.min()))
     return img
-
+    
 #############################
 ### Functions for manager ###
 #############################
 def swap_db(db, DEBUG=False):
     if DEBUG: start_time = time.time()
 
-    db['write']['bin'].rename('temp', dropTarget=True)          # Create a temp record for processing
+    db['write.bin'].rename('temp', dropTarget=True)          # Create a temp record for processing
     temp = db['temp']
-    create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
+    #create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
     drop_incomplete_samples(temp, ('data', 'label'))            # Drop incomplete packages from record 
-    map_contiguous_ids3(temp)                                   # Convert IDs into contiguous mapping
+    remapit(temp, temp.distinct('id'))
+    #map_contiguous_ids(temp)                                   # Convert IDs into contiguous mapping
     db['temp'].rename('read.bin', dropTarget = True)            # Change the temp into the read collection
 
     if DEBUG: print("Swap operation completed in", time.time() - start_time, "seconds")
@@ -108,33 +115,19 @@ def monitor_insertions(db, DEBUG=False):
         write_count = len(write_collection.distinct('id'))
         print(f"Write: {write_count}, Read: {read_count}, Time: {time.time()}")
         if write_count>= SWAP_THRESHOLD:
-            swap_db(db, DEBUG=True)
+            swap_db(db, DEBUG=DEBUG)
             total_records += write_count
             print(f'Total records seen: {total_records}')
             read_count = write_count
-        #if DEBUG: print(f'Total records: {total_records}')
         time.sleep(10)  # Adjust the polling interval as needed
 
 def create_capped_collection(db, collection_name, max_samples):
+    """ The 'capped' is a lie """
     # Calculate the maximum size based on the number of samples
     max_size = max_samples * ((256*256*256) * 2) + 1024*10# Packet size + a buffer
     if collection_name not in db.list_collection_names():
-        db.create_collection(collection_name, capped=True, size=max_size)
+        db.create_collection(collection_name, capped=False, size=max_size)
     return db[collection_name]
-
-def remove_invalid_chunks(collection, expected_chunks=NUMCHUNKS, DEBUG=False):
-    # Get all distinct IDs in the collection
-    distinct_ids = collection.distinct('id')
-    # Iterate over each distinct ID
-    for id_value in distinct_ids:
-        # Count the number of chunks associated with the current ID
-        chunk_count = collection.count_documents({'id': id_value})
-        # Check if the chunk count matches the expected number of chunks
-        if chunk_count != expected_chunks:
-            # Remove all documents with the invalid ID
-            collection.delete_many({'id': id_value})
-            if DEBUG: print(f"Removed {chunk_count} chunks for ID: {id_value}")
-    if DEBUG: print("Finished removing invalid chunks.")
 
 def drop_incomplete_samples(collection_bin, sample_kinds, expected_chunks=NUMCHUNKS):
     """Drops samples from the MongoDB collection that have incomplete chunks"""
@@ -168,56 +161,6 @@ def drop_incomplete_samples(collection_bin, sample_kinds, expected_chunks=NUMCHU
             print(f"Dropped sample ID: {sample_id}")
     print("Finished dropping incomplete samples.")
 
-
-'''
-# Earlier, slower version of map_contiguous_ids 
-def map_contiguous_ids(collection_bin, DEBUG=False):
-    if DEBUG: start = time.time()
-    # Get all distinct sample IDs in the collection
-    distinct_ids = collection_bin.distinct("id")
-    
-    # Sort the distinct IDs
-    sorted_ids = sorted(distinct_ids)
-    
-    # Create a dictionary to map original sample IDs to contiguous IDs
-    id_map = {id: contiguous_id for contiguous_id, id in enumerate(sorted_ids)}
-    
-    # Update each document in the collection with the contiguous ID
-    for original_id, contiguous_id in id_map.items():
-        collection_bin.update_many(
-            {"id": original_id},
-            {"$set": {"id": contiguous_id}}
-        )
-    if DEBUG: print(f'Swap took {time.time() - start}') 
-
-def map_contiguous_ids2(collection_bin, DEBUG=False):
-    if DEBUG: start = time.time()
-    
-    # Get distinct sample IDs and sort them using aggregation pipeline
-    pipeline = [
-        {"$group": {"_id": "$id"}},
-        {"$sort": {"_id": 1}}
-    ]
-    sorted_ids = [doc["_id"] for doc in collection_bin.aggregate(pipeline)]
-    
-    # Create a dictionary to map original sample IDs to contiguous IDs
-    id_map = {id: contiguous_id for contiguous_id, id in enumerate(sorted_ids)}
-    
-    # Update documents in bulk using bulk_write()
-    bulk_operations = []
-    for original_id, contiguous_id in id_map.items():
-        bulk_operations.append(
-            UpdateMany(
-                {"id": original_id},
-                {"$set": {"id": contiguous_id}}
-            )
-        )
-    collection_bin.bulk_write(bulk_operations)
-    
-    if DEBUG: print(f'Swap took {time.time() - start}')
-'''
-
-
 def update_chunk(chunk, db_name, collection_name):
     """ Sends a bulk job to mongodb to update ids using a mapping """ 
     client = MongoClient('mongodb://arctrdcn018:27017/')  # TODO: Hardcoded
@@ -236,7 +179,7 @@ def update_chunk(chunk, db_name, collection_name):
     
     client.close()  # Close the MongoDB connection when done
 
-def map_contiguous_ids3(collection_bin, num_processes=10, DEBUG=False):
+def map_contiguous_ids(collection_bin, num_processes=10, DEBUG=False):
     """ Multithreaded-ly maps the ids from collection_bin to a contiguous range [0.. len(collection_bin)] """
     if DEBUG: start = time.time()
     
@@ -292,6 +235,32 @@ def scramble_ids(collection_bin, num_processes=10, DEBUG=False):
         pool.starmap(update_chunk, [(chunk, db_name, collection_name) for chunk in chunks])
     
     if DEBUG: print(f'Swap took {time.time() - start}')
+
+def remapit(collection, distinct_ids, THREAD_COUNT=30):
+    def update_batch(batch):
+        collection.bulk_write(batch, ordered=False)
+    # Map old `id` values to new sequential values
+    id_mapping = {old_id: new_id for new_id, old_id in enumerate(distinct_ids)}
+
+    # Prepare the bulk update operations
+    update_ops = [
+        UpdateMany({'id': old_id}, {'$set': {'id': new_id}})
+        for old_id, new_id in id_mapping.items()
+    ]
+
+    # Execute the updates in parallel using a ThreadPool
+    with ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
+        # Split the update_ops into roughly equal parts for each thread
+        ops_chunks = [update_ops[i::THREAD_COUNT] for i in range(THREAD_COUNT)]
+        # Dispatch the update operations to the threads
+        futures = [executor.submit(update_batch, chunk) for chunk in ops_chunks]
+
+        # Optionally, wait for all operations to complete and handle exceptions
+        for future in futures:
+            future.result()
+
+    # Create an index on the new `id` field
+    collection.create_index([('id', 1)])
 
 
 def reset_capped_collections(db, max_samples = SWAP_THRESHOLD):
