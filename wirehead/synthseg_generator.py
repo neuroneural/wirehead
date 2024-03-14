@@ -43,7 +43,7 @@ def preprocess_synthseg_label(lab: np.ndarray) -> np.ndarray:
         0, 0, 0], dtype='int').astype(np.uint8)
     return synthseg_label_map[lab].astype(np.uint8)
 
-def generation_loop(collection_bin, generator, id_range, DEBUG=False):
+def generation_loop(db, generator, id_range, DEBUG=False):
     """Preprocessing and pushing of samples from synthseg"""
     idx = functions.gen_id_iterator(id_range)
     while(True):
@@ -62,7 +62,7 @@ def generation_loop(collection_bin, generator, id_range, DEBUG=False):
         lab = torch.from_numpy(lab)
         if DEBUG: 
             preprocess_end = time()
-        functions.push_mongo((img, lab), next(idx), collection_bin)
+        functions.push_mongo((img, lab), next(idx), db)
         if DEBUG:
             print(f'Generation took {generation_end - generation_start} seconds')
             print(f'Preprocessing took {preprocess_end - preprocess_start} seconds')
@@ -85,4 +85,4 @@ if __name__ == '__main__':
     db = client[defaults.MONGO_DBNAME]
     write_col = db['write']['bin']
     generator = BrainGenerator(defaults.DATA_PATH+ train_seg)
-    generation_loop(write_col, generator, (id_start, id_end), DEBUG=True)
+    generation_loop(db, generator, (id_start, id_end), DEBUG=True)

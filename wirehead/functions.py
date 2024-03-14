@@ -1,15 +1,15 @@
+""" Functions for use in generate.py, manager.py and various debugging functions """
 import io
-import bson
-
-from concurrent.futures import ThreadPoolExecutor
-from pymongo import MongoClient, UpdateMany
-from multiprocessing import Pool
-
-import torch
-import numpy as np
-import pickle
 import time
 import math
+
+from multiprocessing import Pool
+from concurrent.futures import ThreadPoolExecutor
+from pymongo import MongoClient, UpdateMany
+
+import bson
+import torch
+import numpy as np
 from wirehead.defaults import SWAP_THRESHOLD, CHUNKSIZE, NUMCHUNKS, DEFAULT_IMG, DEFAULT_LAB
 
 ###############################
@@ -23,14 +23,13 @@ def push_mongo(package, id, db, chunksize=CHUNKSIZE):
     label_bytes = tensor2bin(label_tensor)
 
     for chunk in chunk_binobj(data_bytes, id, "data", chunksize):
-        #collection_bin = create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
         collection_bin.insert_one(chunk)
 
     for chunk in chunk_binobj(label_bytes, id, "label", chunksize):
-        #collection_bin = create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
         collection_bin.insert_one(chunk)
 
 def gen_id_iterator(id_range):
+    """ Creates an id iterator for the rane of the generator workers"""
     id_start, id_end = id_range
     current_id = id_start
     while True:
@@ -40,6 +39,7 @@ def gen_id_iterator(id_range):
             current_id = id_start
 
 def chunk_binobj(tensor_compressed, id, kind, chunksize):
+    """ Chunkifies a binary object into a series of chunks of chunksize MiBs """
     # Convert chunksize from megabytes to bytes
     chunksize_bytes = chunksize * 1024 * 1024
     # Calculate the number of chunks
@@ -93,19 +93,24 @@ def preprocess_image_min_max(img:np.ndarray)->np.ndarray:
 ### Functions for manager ###
 #############################
 def swap_db(db, DEBUG=False):
+    """ Swaps write database with read database
+        TODO: Lots of optimizations  
+    """
     if DEBUG: start_time = time.time()
 
-    db['write.bin'].rename('temp', dropTarget=True)          # Create a temp record for processing
+    db['write.bin'].rename('temp', dropTarget=True)     # Create a temp record for processing
     temp = db['temp']
     #create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
-    drop_incomplete_samples(temp, ('data', 'label'))            # Drop incomplete packages from record 
+    drop_incomplete_samples(temp, ('data', 'label'))    # Drop incomplete packages from record 
     remapit(temp, temp.distinct('id'))
-    #map_contiguous_ids(temp)                                   # Convert IDs into contiguous mapping
-    db['temp'].rename('read.bin', dropTarget = True)            # Change the temp into the read collection
+    #map_contiguous_ids(temp)                           # Convert IDs into contiguous mapping
+    db['temp'].rename('read.bin', dropTarget = True)    # Change the temp into the read collection
 
     if DEBUG: print("Swap operation completed in", time.time() - start_time, "seconds")
 
 def monitor_insertions(db, DEBUG=False):
+    """ Monitors the database in a separate thread, swapping the databases
+        when samples are full"""
     global total_records
     total_records = 0
     read_count = 0
@@ -179,34 +184,6 @@ def update_chunk(chunk, db_name, collection_name):
     
     client.close()  # Close the MongoDB connection when done
 
-def map_contiguous_ids(collection_bin, num_processes=10, DEBUG=False):
-    """ Multithreaded-ly maps the ids from collection_bin to a contiguous range [0.. len(collection_bin)] """
-    if DEBUG: start = time.time()
-    
-    # Get distinct sample IDs and sort them using aggregation pipeline
-    pipeline = [
-        {"$group": {"_id": "$id"}},
-        {"$sort": {"_id": 1}}
-    ]
-    sorted_ids = [doc["_id"] for doc in collection_bin.aggregate(pipeline)]
-    
-    # Create a dictionary to map original sample IDs to contiguous IDs
-    id_map = {id: contiguous_id for contiguous_id, id in enumerate(sorted_ids)}
-    
-    # Split the id_map into chunks for parallel processing
-    chunk_size = math.ceil(len(id_map) / num_processes)
-    chunks = [list(id_map.items())[i:i+chunk_size] for i in range(0, len(id_map), chunk_size)]
-    
-    # Get the database and collection names
-    db_name = collection_bin.database.name
-    collection_name = collection_bin.name
-    
-    # Create a multiprocessing pool and update documents in parallel
-    with Pool(processes=num_processes) as pool:
-        pool.starmap(update_chunk, [(chunk, db_name, collection_name) for chunk in chunks])
-    
-    if DEBUG: print(f'Swap took {time.time() - start}')
-
 def scramble_ids(collection_bin, num_processes=10, DEBUG=False):
     """ Test function to synthetically scramble the ids of a collection for benchmarks """
     if DEBUG: start = time.time()
@@ -219,8 +196,8 @@ def scramble_ids(collection_bin, num_processes=10, DEBUG=False):
     sorted_ids = [doc["_id"] for doc in collection_bin.aggregate(pipeline)]
     
     # Create a dictionary to map original sample IDs to contiguous IDs
-    shift = len(sorted_ids)
-    id_map = {id: contiguous_id*2+10000 for contiguous_id, id in enumerate(sorted_ids)}
+    shift = SWAP_THRESHOLD
+    id_map = {idx: contiguous_id*2+10000 for contiguous_id, idx in enumerate(sorted_ids)}
     
     # Split the id_map into chunks for parallel processing
     chunk_size = math.ceil(len(id_map) / num_processes)
@@ -262,7 +239,6 @@ def remapit(collection, distinct_ids, THREAD_COUNT=30):
     # Create an index on the new `id` field
     collection.create_index([('id', 1)])
 
-
 def reset_capped_collections(db, max_samples = SWAP_THRESHOLD):
     # Check if the collections already exist
     if 'write.bin' in db.list_collection_names():
@@ -276,11 +252,11 @@ def reset_capped_collections(db, max_samples = SWAP_THRESHOLD):
     # Create the capped collections with the specified size limit
     create_capped_collection(db, 'read.bin', max_samples=max_samples)
     create_capped_collection(db, 'write.bin', max_samples=max_samples)
-    print(f"Capped collections '{'write'}' and '{'read'}' have been reset.")
+    print("Capped collections write and read have been reset.")
 
-#############################
-### Functions for dataset ###
-#############################
+##############################
+### Functions for fetching ###
+##############################
 def safe_fetch_separate(collection_bin, id_iterator, sample_kinds,
                         nchunks=NUMCHUNKS, max_fetches=10,
                         fetches=0, DEBUG=False) -> (torch.Tensor, torch.Tensor):
@@ -305,7 +281,12 @@ def safe_fetch_separate(collection_bin, id_iterator, sample_kinds,
         ).sort("chunk_id"))
         if len(data_chunks) != nchunks or len(label_chunks) != nchunks:
             if fetches < max_fetches:
-                return safe_fetch_separate(collection_bin, id_iterator, sample_kinds, nchunks, max_fetches, fetches + 1, DEBUG)
+                return safe_fetch_separate(collection_bin, 
+                                           id_iterator, 
+                                           sample_kinds, 
+                                           nchunks, 
+                                           max_fetches, 
+                                           fetches + 1, DEBUG)
             else:
                 return DEFAULT_IMG, DEFAULT_LAB
         data_binary = b"".join(chunk["chunk"] for chunk in data_chunks)
@@ -318,39 +299,6 @@ def safe_fetch_separate(collection_bin, id_iterator, sample_kinds,
     except StopIteration:
         # Handle the case when the iterator is exhausted
         return DEFAULT_IMG, DEFAULT_LAB
-def safe_fetch( collection_bin, id_iterator, 
-                nchunks=NUMCHUNKS, max_fetches = 10,
-                fetches = 0, DEBUG=False) -> (torch.Tensor, torch.Tensor):
-    """Safely returns a image label pair from a mongodb collection"""
-    chunks = chunks = list(collection_bin.find({"id": next(id_iterator)}).sort("chunk_id"))
-    while (len(chunks) != nchunks and fetches < max_fetches):
-        chunks = safe_fetch(collection_bin, id_iterator)
-        fetches += 1 
-    if fetches >= max_fetches:
-        return DEFAULT_IMG, DEFAULT_LAB
-    data = b"".join(chunk["chunk"] for chunk in chunks)
-    package = pickle.loads(data)
-    img = bin2tensor(package[0])
-    lab = bin2tensor(package[1])
-    if DEBUG: print(f"{time.time()} {chunks[0]['id']}")
-    return img, lab
-
-def safe_fetch( collection_bin, id_iterator, 
-                nchunks=NUMCHUNKS, max_fetches = 10,
-                fetches = 0, DEBUG=False) -> (torch.Tensor, torch.Tensor):
-    """Safely returns a image label pair from a mongodb collection"""
-    chunks = chunks = list(collection_bin.find({"id": next(id_iterator)}).sort("chunk_id"))
-    while (len(chunks) != nchunks and fetches < max_fetches):
-        chunks = safe_fetch(collection_bin, id_iterator)
-        fetches += 1 
-    if fetches >= max_fetches:
-        return DEFAULT_IMG, DEFAULT_LAB
-    data = b"".join(chunk["chunk"] for chunk in chunks)
-    package = pickle.loads(data)
-    img = bin2tensor(package[0])
-    lab = bin2tensor(package[1])
-    if DEBUG: print(f"{time.time()} {chunks[0]['id']}")
-    return img, lab
 
 def id_iterator(collection_bin, DEBUG = False) -> int:
     """Yields a valid id from the current collection, hopefully safely"""
@@ -362,7 +310,7 @@ def id_iterator(collection_bin, DEBUG = False) -> int:
             yield id_list[idx % SWAP_THRESHOLD]
             id_list = collection_bin.distinct('id')
             idx = (idx + 1) % SWAP_THRESHOLD
-        except:
+        except IndexError:
             if DEBUG: print(f'Debug: idx out of range')
             """Note to self: this can lead to unintended consequences 
             when plugged into the sample fetcher. There are no guarantees
