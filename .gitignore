@@ -4,3 +4,6 @@ dev_src/
 ./local_ping.sh
 __pycache__
 wandb/
+Synthseg/
+ext/
+mongo_tests/
