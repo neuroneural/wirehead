@@ -43,7 +43,6 @@
 
     > side effect: this makes it really hard to test the dataloader during edge cases (such as swapping), as there could be 10000 samples, which takes a long time to swap.
 
-        > hotfix: manually resetting the database, lowering the SWAP_THRESHOLD, and restarting the manager
-    
+    > hotfix: manually resetting the database, lowering the SWAP_THRESHOLD, and restarting the manager
+
     - [ ] **Swaps take longer than it takes to fill up the daatbase** Self explanatory
-    

@@ -131,7 +131,7 @@ def create_capped_collection(db, collection_name, max_samples):
     # Calculate the maximum size based on the number of samples
     max_size = max_samples * ((256*256*256) * 2) + 1024*10# Packet size + a buffer
     if collection_name not in db.list_collection_names():
-        db.create_collection(collection_name, capped=False, size=max_size)
+        db.create_collection(collection_name, capped=True, size=max_size)
     return db[collection_name]
 
 def drop_incomplete_samples(collection_bin, sample_kinds, expected_chunks=NUMCHUNKS):
