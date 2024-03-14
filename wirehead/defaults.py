@@ -7,7 +7,7 @@ MONGO_READ      = 'read'
 MONGO_WRITE     = 'write'
 CHUNKSIZE       = 10
 NUMCHUNKS       = 2
-SWAP_THRESHOLD  = 1000
+SWAP_THRESHOLD  = 100
 
 ###########################
 ### Defaults for TReNDS ###

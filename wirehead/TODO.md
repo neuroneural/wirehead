@@ -6,8 +6,10 @@
     - [x] Hook into Mongo
     - [x] Preprocessing  
     - [x] Rewrite pushing function to use Sergey's schema
-    - [ ] ID range assignment
-    - [ ] Wrapper script for distributed deployment on slurm
+    - [x] ID range assignment
+    - [x] Wrapper script for distributed deployment on slurm
+    - [ ] Need to figure out how to set a capped collection without proccing errors
+    > Collections are implicitly created when samples are pushed to record. Trying to create a new capped collection after dropping write.bin in swap_db is unsafe
     - [ ] Testing
 - [ ] Manager
     - [x] Safe id iterator
