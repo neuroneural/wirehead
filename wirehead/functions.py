@@ -2,6 +2,7 @@
 import io
 import time
 import math
+import random
 
 from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor
@@ -92,22 +93,6 @@ def preprocess_image_min_max(img:np.ndarray)->np.ndarray:
 #############################
 ### Functions for manager ###
 #############################
-def swap_db(db, DEBUG=False):
-    """ Swaps write database with read database
-        TODO: Lots of optimizations  
-    """
-    if DEBUG: start_time = time.time()
-
-    db['write.bin'].rename('temp', dropTarget=True)     # Create a temp record for processing
-    temp = db['temp']
-    #create_capped_collection(db, 'write.bin', SWAP_THRESHOLD)   # Create a new write collection 
-    drop_incomplete_samples(temp, ('data', 'label'))    # Drop incomplete packages from record 
-    remapit(temp, temp.distinct('id'))
-    #map_contiguous_ids(temp)                           # Convert IDs into contiguous mapping
-    db['temp'].rename('read.bin', dropTarget = True)    # Change the temp into the read collection
-
-    if DEBUG: print("Swap operation completed in", time.time() - start_time, "seconds")
-
 def monitor_insertions(db, DEBUG=False):
     """ Monitors the database in a separate thread, swapping the databases
         when samples are full"""
@@ -126,6 +111,47 @@ def monitor_insertions(db, DEBUG=False):
             read_count = write_count
         time.sleep(10)  # Adjust the polling interval as needed
 
+def swap_db(db, src_col='write.bin', dst_col='read.bin', DEBUG=False):
+    """ Swaps write database with read database
+    TODO: Lots of optimizations
+    """
+    if DEBUG:
+        start_time = time.time()
+
+    db[src_col].rename('temp', dropTarget=True) # Create a temp record for processing
+    temp = db['temp']
+    drop_incomplete_samples(temp)               # Remove invalid samples from collection
+    trim_spare(temp)                            # Remove records if there are too many
+    remapit(temp)                               # Map ids to contiguous mapping
+    impute_missing(temp)                        # Impute records if there are too few
+    temp.rename(dst_col, dropTarget=True)       # Rename to destination collection name
+    if DEBUG:
+        print(f"Read.bin size: {len(db['read.bin'].distinct('id'))}")
+        print("Swap operation completed in", time.time() - start_time, "seconds")
+
+def impute_missing(collection, size=SWAP_THRESHOLD):
+    col_ids  = collection.distinct('id') 
+    nsamples = len(col_ids)
+    if nsamples < size:
+        missing = random.sample(col_ids, size - nsamples)
+
+        curr_id = nsamples
+        for idx in missing:
+            records = collection.find({'id': {'$in': idx}})
+            for record in records:
+                record['id'] = curr_id
+                collection.insert_one(record)
+            curr_id += 1
+
+def trim_spare(collection, size=SWAP_THRESHOLD):
+    col_ids  = collection.distinct('id') 
+    #print(f"Trim size: {col_ids}")
+    nsamples = len(col_ids)
+    if nsamples > size:
+        spare = col_ids[size:]
+        for idx in spare:
+            collection.delete_many({"id": idx})
+
 def create_capped_collection(db, collection_name, max_samples):
     """ The 'capped' is a lie """
     # Calculate the maximum size based on the number of samples
@@ -134,7 +160,7 @@ def create_capped_collection(db, collection_name, max_samples):
         db.create_collection(collection_name, capped=True, size=max_size)
     return db[collection_name]
 
-def drop_incomplete_samples(collection_bin, sample_kinds, expected_chunks=NUMCHUNKS):
+def drop_incomplete_samples(collection_bin, sample_kinds=('data', 'label'), expected_chunks=NUMCHUNKS):
     """Drops samples from the MongoDB collection that have incomplete chunks"""
     # Get all distinct sample IDs in the collection
     sample_ids = collection_bin.distinct("id")
@@ -196,8 +222,7 @@ def scramble_ids(collection_bin, num_processes=10, DEBUG=False):
     sorted_ids = [doc["_id"] for doc in collection_bin.aggregate(pipeline)]
     
     # Create a dictionary to map original sample IDs to contiguous IDs
-    shift = SWAP_THRESHOLD
-    id_map = {idx: contiguous_id*2+10000 for contiguous_id, idx in enumerate(sorted_ids)}
+    id_map = {idx: contiguous_id*2+SWAP_THRESHOLD for contiguous_id, idx in enumerate(sorted_ids)}
     
     # Split the id_map into chunks for parallel processing
     chunk_size = math.ceil(len(id_map) / num_processes)
@@ -213,7 +238,8 @@ def scramble_ids(collection_bin, num_processes=10, DEBUG=False):
     
     if DEBUG: print(f'Swap took {time.time() - start}')
 
-def remapit(collection, distinct_ids, THREAD_COUNT=30):
+def remapit(collection, THREAD_COUNT=30):
+    distinct_ids = collection.distinct('id')
     def update_batch(batch):
         collection.bulk_write(batch, ordered=False)
     # Map old `id` values to new sequential values
@@ -233,8 +259,11 @@ def remapit(collection, distinct_ids, THREAD_COUNT=30):
         futures = [executor.submit(update_batch, chunk) for chunk in ops_chunks]
 
         # Optionally, wait for all operations to complete and handle exceptions
+        '''
         for future in futures:
             future.result()
+        '''
+        
 
     # Create an index on the new `id` field
     collection.create_index([('id', 1)])
