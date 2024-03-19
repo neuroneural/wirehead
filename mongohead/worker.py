@@ -7,7 +7,7 @@ import io
 import torch
 import bson
 
-DBNAME = "wirehead_mike"
+DBNAME = "wirehead_sergey"
 COLLECTIONw = "write.bin"
 COLLECTIONr = "read.bin"
 COLLECTIONt = "temp.bin"
@@ -20,7 +20,7 @@ PATH_TO_DATA = (
 DATA_FILES = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
 PATH_TO_SYNTHSEG='/data/users1/mdoan4/wirehead/dependencies/synthseg'
 CHUNKSIZE = 10
-TARGET_COUNTER_VALUE = 10 # Example threshold value
+TARGET_COUNTER_VALUE = 5000# Example threshold value
 
 client = MongoClient("mongodb://" + MONGOHOST + ":27017")
 db = client[DBNAME]
@@ -28,7 +28,7 @@ db = client[DBNAME]
 LOG_METRICS         = True
 EXPERIMENT_KIND     = 'mongohead'
 COLLECTIONm         = 'metrics'
-EXPERIMENT_NAME     = '2024-03-19'
+EXPERIMENT_NAME     = '2024-03-19_training'
 WORKER_COUNT        = 20
 LOCAL_RUNNING       = True
 
