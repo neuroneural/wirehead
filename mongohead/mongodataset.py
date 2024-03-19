@@ -1,2 +1,0 @@
-class whdataset():
-    None
