@@ -14,6 +14,7 @@ from SynthSeg.brain_generator import BrainGenerator
 from SynthSeg.brain_generator import BrainGenerator
 import tensorflow as tf
 
+
 gpus = tf.config.experimental.list_physical_devices("GPU")
 if gpus:
     try:
@@ -29,6 +30,9 @@ COLLECTIONw = "write.bin"
 COLLECTIONr = "read.bin"
 COLLECTIONt = "temp.bin"
 COLLECTIONc = "counters"
+
+COLLECTIONm = "metrics"
+
 MONGOHOST = "arctrdcn018.rs.gsu.edu"
 PATH_TO_WIREHEAD = "/data/users1/mdoan4/wirehead/"
 PATH_TO_DATA = (
@@ -37,21 +41,19 @@ PATH_TO_DATA = (
 DATA_FILES = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
 CHUNKSIZE = 10
 
-TARGET_COUNTER_VALUE = 1000
+TARGET_COUNTER_VALUE = 1000# Example threshold value
+############################################################
+################ Globals for metric logging ################
+############################################################
+LOG_METRICS     = True # Toggle for sending metrics to mongo
+EXPERIMENT_NAME = "benchmark_2024_03_24"
+WORKER_COUNT    = 20   # Unclear how to do this properly 
+#############################################################
+#############################################################
+#############################################################
 
 client = MongoClient("mongodb://" + MONGOHOST + ":27017")
 db = client[DBNAME]
-
-
-###################################
-###### Defaults for logging #######
-LOG_METRICS = True
-COLLECTIONm = 'metrics'
-EXPERIMENT_NAME = '2024-03-18'
-WORKER_COUNT = 20
-LOCAL_RUNNING = True
-###################################
-
 
 LABEL_MAP = np.asarray(
     [0, 0, 1, 2, 3, 4, 0, 5, 6, 0, 7, 8, 9, 10]
@@ -62,7 +64,8 @@ LABEL_MAP = np.asarray(
     + [18, 19, 20, 21, 0, 22, 23]
     + [0, 24, 25, 26, 27, 28, 29, 0, 0, 18, 30, 0, 31]
     + [0] * 75
-    + [3, 4] + [0] * 25
+    + [3, 4]
+    + [0] * 25
     + [20, 21]
     + [0] * 366,
     dtype="int",
@@ -161,23 +164,23 @@ def assert_sequence(collection, TARGET_COUNTER_VALUE):
         flush=True,
     )
 
+
 def reset_counter_and_collection(main_collection):
     # Delete all documents in the main collection that have creeped in
     # between the renaming and now. This operation is within a
     # transaction
     main_collection.delete_many({})
     # Reset the counter to zero
-    result = db[COLLECTIONc].update_one(
-        {"_id": "uniqueFieldCounter"},  # Query part: the document to match
-        {"$set": {"sequence_value": 0}},  # Update part: what to set if the document is matched/found
-        upsert=True  # This ensures that if the document doesn't exist, it will be inserted
+    db[COLLECTIONc].update_one(
+        {"_id": "uniqueFieldCounter"},
+        {"$set": {"sequence_value": 0}},
     )
     # Delete all documents in the main collection that have creeped in
     # between the renaming and now. This operation is within a
     # transaction
     main_collection.delete_many({})
 
-"""
+
 def reset_counter_and_collection_transaction():
     # Attempting logical atomicity
     with client.start_session() as session:
@@ -196,14 +199,15 @@ def reset_counter_and_collection_transaction():
 
             # Commit the transaction
             session.commit_transaction()
-"""
+    
+    # On first run, this is needed
+
 
 # Function to watch the counter and perform actions when a threshold is reached
 def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
     if LOG_METRICS: swap_start = time.time()
     counter_doc = db[COLLECTIONc].find_one({"_id": "uniqueFieldCounter"})
-    if LOG_METRICS: check_counter_end = time.time()
-    #print("checked the counter ", counter_doc["sequence_value"], flush=True)
+    # print("checked the counter ", counter_doc["sequence_value"], flush=True)
     if counter_doc["sequence_value"] >= TARGET_COUNTER_VALUE:
         # Actions to be taken when the threshold is reached
         # Renaming the collection and creating a new one
@@ -214,14 +218,9 @@ def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
         # Now atomically reset the counter to 0 and delete whatever records
         # may have been written between the execution of the previous line
         # and the next
-
-        if LOG_METRICS: reset_start = time.time()
         reset_counter_and_collection(db[COLLECTIONw])  # this is atomic
-        if LOG_METRICS: reset_end = time.time()
         # index temp.bin collection on id
-        if LOG_METRICS: index_start = time.time()
         db[COLLECTIONt].create_index([("id", ASCENDING)])
-        if LOG_METRICS: index_end = time.time()
         # delete all records with id > (TARGET_COUNTER_VALUE - 1)
         if LOG_METRICS: clean_start = time.time()
         result = db[COLLECTIONt].delete_many(
@@ -239,9 +238,6 @@ def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
 
         if LOG_METRICS: # For printing out timing stats, unclear if this is useful for paper metrics
             print(f"Swap operation took     {swap_end-swap_start} seconds")
-            print(f"Checking counter took   {check_counter_end-swap_start} seconds")
-            print(f"Resetting took          {reset_end-reset_start} seconds")
-            print(f"Indexing took           {index_end-index_start} seconds")
             print(f"Cleaning operation took {clean_end-clean_start} seconds")
             print(f"Verifying took          {verify_end-verify_start} seconds")
 
@@ -282,7 +278,9 @@ def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
 def generate_and_insert(
     brain_generator, collection_bin, counter_collection, chunk_size
 ):
-    img, lab = brain_generator.generate_brain()
+    
+    img = torch.randint(0,10, (256,256,256), dtype=torch.uint8).numpy()
+    lab = torch.randint(0,10, (256,256,256), dtype=torch.uint8).numpy()
     img = preprocess_image_min_max(img) * 255
     img = img.astype(np.uint8)
     lab = preprocess_label(lab)
@@ -335,31 +333,16 @@ def generate_and_insert(
 if __name__ == "__main__":
     print("".join(["-"] * 50), flush=True)
     task_id = my_task_id()
+    brain_generator = "who cares lol"
 
-    if is_first_job() or LOCAL_RUNNING:
-        print(
-            "I am the manager "
-            + "\U0001F468\U0001F4BC"
-            + ", watching the bottomline.",  # Also doing some work.",
-            flush=True,
+    print(
+        "I am a worker "
+        + "\U0001F41D"
+        + ", generating and inserting data.",
+        flush=True,
+    )
+    while True:
+        generate_and_insert(
+            brain_generator, db[COLLECTIONw], db[COLLECTIONc], CHUNKSIZE
         )
-        reset_counter_and_collection(db[COLLECTIONw])
-        generated = 0
-        while True:
-            generated = watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=LOG_METRICS)
-            # generate_and_insert(
-            #     brain_generator, db[COLLECTIONw], db[COLLECTIONc], CHUNKSIZE
-            # )
-    else:
-        brain_generator = create_generator(task_id)
-        print(
-            "I am a worker "
-            + "\U0001F41D"
-            + ", generating and inserting data.",
-            flush=True,
-        )
-        while True:
-            generate_and_insert(
-                brain_generator, db[COLLECTIONw], db[COLLECTIONc], CHUNKSIZE
-            )
-            # time.sleep(1)  # Adjust the sleep time as needed
+        # time.sleep(1)  # Adjust the sleep time as needed
