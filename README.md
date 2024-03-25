@@ -37,8 +37,8 @@ stdbuf -o0 python mongohead/worker.py
 
 ```
 from pymongo import MongoClient
-from mindfultensors.mongoloader import MongoHeadDataset
+from wirehead.MongoheadDataset import MongoHeadDataset
 
-db = MongoClient(your database host)[database name] 
-dataset = MongoHeadDataset(db)
+db = MongoClient(mongodbhostname)[database_name]
+dataset = MongoheadDataset(collection = db[collection_name], sample = ('data', 'label'))
 ```
