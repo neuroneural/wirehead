@@ -240,7 +240,6 @@ def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
 def generate_and_insert(
     brain_generator, collection_bin, counter_collection, chunk_size
 ):
-    print('ding')
     """ Preprocesses each sample from a generator and pushes it to mongodb """
     img, lab = brain_generator.generate_brain()
     img = preprocess_image_min_max(img) * 255
@@ -330,9 +329,7 @@ def run_manager():
         # TODO: Make the generator also generate samples using threads
 
 if __name__ == "__main__":
-    '''
     if is_first_job(): 
         run_manager()
     else:
-        '''
-    run_generator()
+        run_generator()
