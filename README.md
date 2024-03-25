@@ -31,3 +31,14 @@ echo "Error output test" >&2
 source /trdapps/linux-x86_64/envs/plis_conda/bin/activate /trdapps/linux-x86_64/envs/plis_conda/envs/synthseg_38
 stdbuf -o0 python mongohead/worker.py
 ```
+
+- Wait for the databases to saturate (this depends on your generator pipeline)
+- Read from the database using MongoHeadDataset
+
+```
+from pymongo import MongoClient
+from mindfultensors.mongoloader import MongoHeadDataset
+
+db = MongoClient(your database host)[database name] 
+dataset = MongoHeadDataset(db)
+```
