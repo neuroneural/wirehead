@@ -6,42 +6,28 @@ Caching system for horizontal scaling of synthetic data generators using Redis/M
 
 ## Usage ##
 
-* Example usage can be found in /src/dataloader.py
+- Create a generator that yields a (sample, label) pair
+- Either use the default preprocessing options in generate_and_insert() or customize your own
+- Deploy to slurm 
 
 ```
-import wirehead as wh
+#!/bin/bash
 
-tdataset = wh.whDataloader(
-    transform=my_transform,      # User defined transformations 
-    host=hostname,               # Hostname currently running wirehead's backend redis server 
-    num_samples = sample_count)  # Number of samples to pull from wirehead
+#SBATCH --job-name=wireheadsergey
+#SBATCH --nodes=1
+#SBATCH -c 16
+#SBATCH --mem=50g
+#SBATCH --gres=gpu:A40:1
+#SBATCH --output=./log/generate_output_%A_%a.log
+#SBATCH --error=./log/generate_error_%A_%a.log
+#SBATCH --time=06:00:00
+#SBATCH -p qTRDGPU
+#SBATCH -A psy53c17
+#SBATCH --array=0-20
+
+echo "This is a test job running on node $(hostname)"
+echo "Error output test" >&2
+
+source /trdapps/linux-x86_64/envs/plis_conda/bin/activate /trdapps/linux-x86_64/envs/plis_conda/envs/synthseg_38
+stdbuf -o0 python mongohead/worker.py
 ```
----
-
-## Description ##
-
-* A dynamic data caching platform for low throughput synthetic data generation pipelines
-* Built for SynthSeg on ARCTIC Slurm cluster
-* Built on Redis for extremely high throughput and for funky database manipulation techniques
-
----
-## Instructions ##
-
-Create training environment
-```
-conda create wirehead_train python=3.9
-conda activate wireheaed_train
-pip3 install -U catalyst
-conda install -c anaconda nccl
-pip install redis
-pip3 install pynvml
-pip3 install scipy
-pip3 install wandb
-```
-The training setup has custom modifications to Catalyst, so you'll have to copy those in manually
-```
-cp /src/utils/torch.py <your_conda>/envs/torch2/lib/python3.9/site-packages/catalyst/utils
-```
-
-Creating the SynthSeg environment. Follow detailed instructions from the [SynthSeg repo](https://github.com/BBillot/SynthSeg) to install it as per your system setup.
-
