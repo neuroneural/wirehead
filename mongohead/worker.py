@@ -1,31 +1,30 @@
-from pymongo import MongoClient, ReturnDocument, ASCENDING
-import sys
-import os
-import time
-import numpy as np
 import io
-import torch
+import os
+import sys
+import time
 import bson
+import torch
+import numpy as np
+from pymongo import MongoClient, ReturnDocument, ASCENDING
 
-DBNAME = "wirehead_sergey"
-COLLECTIONw = "write.bin"
-COLLECTIONr = "read.bin"
-COLLECTIONt = "temp.bin"
-COLLECTIONc = "counters"
-MONGOHOST = "arctrdcn018.rs.gsu.edu"
-PATH_TO_WIREHEAD = "/data/users1/mdoan4/wirehead/"
-PATH_TO_DATA = (
-    PATH_TO_WIREHEAD + "dependencies/synthseg/data/training_label_maps/"
-)
-DATA_FILES = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
-PATH_TO_SYNTHSEG='/data/users1/mdoan4/wirehead/dependencies/synthseg'
-CHUNKSIZE = 10
-TARGET_COUNTER_VALUE = 5000# Example threshold value
+DBNAME              = "wirehead_sergey"
+COLLECTIONw         = "write.bin"
+COLLECTIONr         = "read.bin"
+COLLECTIONt         = "temp.bin"
+COLLECTIONc         = "counters"
+MONGOHOST           = "arctrdcn018.rs.gsu.edu"
+PATH_TO_WIREHEAD    = "/data/users1/mdoan4/wirehead/"
+PATH_TO_DATA        = (PATH_TO_WIREHEAD + "dependencies/synthseg/data/training_label_maps/")
+DATA_FILES          = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
+PATH_TO_SYNTHSEG    = '/data/users1/mdoan4/wirehead/dependencies/synthseg'
+CHUNKSIZE           = 10
+TARGET_COUNTER_VALUE= 5000 # Example threshold value
 
-client = MongoClient("mongodb://" + MONGOHOST + ":27017")
-db = client[DBNAME]
+client              = MongoClient("mongodb://" + MONGOHOST + ":27017")
+db                  = client[DBNAME]
 
 LOG_METRICS         = True
+BENCHMARK_SWAP      = True
 EXPERIMENT_KIND     = 'mongohead'
 COLLECTIONm         = 'metrics'
 EXPERIMENT_NAME     = '2024-03-19_training'
@@ -66,12 +65,13 @@ def my_task_id():
     return int(task_id)
 
 
-# Function to check if this is the first job based on SLURM_ARRAY_TASK_ID
 def is_first_job():
+    """ Returns True if the job is the first job ran on slurm """
     return my_task_id() == 0
 
 
 def tensor2bin(tensor):
+    """ Serializes a torch tensor into a serialized IO buffer """ 
     # Flatten tensor to 1D
     # tensor_1d = tensor.flatten()
     # tensor_1d = tensor.flatten().to(torch.uint8)
@@ -86,7 +86,7 @@ def tensor2bin(tensor):
 
 
 def chunk_binobj(tensor_compressed, id, kind, chunksize):
-    # Convert chunksize from megabytes to bytes
+    """ Convert chunksize from megabytes to bytes """
     chunksize_bytes = chunksize * 1024 * 1024
 
     # Calculate the number of chunks
@@ -190,7 +190,7 @@ def time_each_line(func):
 
         sys.settrace(original_trace_function)
 
-        if LOG_METRICS:
+        if BENCHMARK_SWAP:
             for line_no, line_time in line_times.items():
                 print(f"Line {line_no}: {line_time:.6f} seconds")
 
@@ -199,6 +199,8 @@ def time_each_line(func):
 
 # Function to watch the counter and perform actions when a threshold is reached
 def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
+    """ Watches the mongodb write collection's distinct id count
+    When TARGET_COUNTER_VALUE is reached, swap() read with write"""
     @time_each_line
     def swap(generated):
         # Actions to be taken when the threshold is reached
@@ -238,6 +240,8 @@ def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
 def generate_and_insert(
     brain_generator, collection_bin, counter_collection, chunk_size
 ):
+    print('ding')
+    """ Preprocesses each sample from a generator and pushes it to mongodb """
     img, lab = brain_generator.generate_brain()
     img = preprocess_image_min_max(img) * 255
     img = img.astype(np.uint8)
@@ -267,23 +271,8 @@ def run_generator():
     """ Initializes and runs a SynthSeg brain generator in a loop,
         preprocesses, then pushes to mongoDB"""
 
-    sys.path.append(PATH_TO_SYNTHSEG)
-    import tensorflow as tf
-    from SynthSeg.brain_generator import BrainGenerator
-
-    def create_generator(task_id, training_seg=None):
-        if training_seg == None:
-            training_seg = DATA_FILES[task_id % len(DATA_FILES)]
-        else:
-            training_seg = training_seg
-        brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
-        print(
-            f"Generator: SynthSeg is generating off {training_seg}",
-            flush=True,
-        )
-        return brain_generator
-    
     def initialize_gpu():
+        import tensorflow as tf
         gpus = tf.config.experimental.list_physical_devices("GPU")
         if gpus:
             try:
@@ -294,6 +283,23 @@ def run_generator():
                 # Memory growth must be set before GPUs have been initialized
                 print(e)
 
+    def create_generator(task_id, training_seg=None):
+        """ Creates a brain generator object. Should contain all the dependencies of the brain generator"""
+
+        sys.path.append(PATH_TO_SYNTHSEG)
+        from SynthSeg.brain_generator import BrainGenerator
+
+
+        initialize_gpu()
+        # TODO: Convert this to an actual generator that yields a (input, label) pair
+        # instead of hardcoding the generate call in generate_and_insert
+        # So next(generator) instead of brain_generator.generate_brain()
+
+        training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
+        brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
+        print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
+        return brain_generator
+    
     print(
         "".join(["-"] * 50)
         + "\nI am a worker "
@@ -302,33 +308,31 @@ def run_generator():
         flush=True,
     )
 
-    initialize_gpu()
     brain_generator = create_generator(my_task_id())
     while True:
         generate_and_insert(
             brain_generator, db[COLLECTIONw], db[COLLECTIONc], CHUNKSIZE
         )
-        # time.sleep(1)  # Adjust the sleep time as needed
-    
+   
 def run_manager():
+    """ Initializes the database manager, swaps the mongo collections whenever TARGET_COUNTER_VALUE is hit. """
     print(
         "".join(["-"] * 50)
         + "\nI am the manager "
         + "\U0001F468\U0001F4BC"
-        + ", watching the bottomline.",  # Also doing some work.",
+        + ", watching the bottomline.", 
         flush=True,
     )
     reset_counter_and_collection(db[COLLECTIONw], db[COLLECTIONc])
     generated = 0
     while True:
         generated = watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=LOG_METRICS)
-        # generate_and_insert(
-        #     brain_generator, db[COLLECTIONw], db[COLLECTIONc], CHUNKSIZE
-        # )
         # TODO: Make the generator also generate samples using threads
 
 if __name__ == "__main__":
+    '''
     if is_first_job(): 
         run_manager()
     else:
-        run_generator()
+        '''
+    run_generator()
