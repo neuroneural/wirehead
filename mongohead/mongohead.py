@@ -7,68 +7,15 @@ import torch
 import numpy as np
 from pymongo import MongoClient, ReturnDocument, ASCENDING
 
-DBNAME              = "wirehead_sergey"
-COLLECTIONw         = "write.bin"
-COLLECTIONr         = "read.bin"
-COLLECTIONt         = "temp.bin"
-COLLECTIONc         = "counters"
-MONGOHOST           = "arctrdcn018.rs.gsu.edu"
-PATH_TO_WIREHEAD    = "/data/users1/mdoan4/wirehead/"
-PATH_TO_DATA        = (PATH_TO_WIREHEAD + "dependencies/synthseg/data/training_label_maps/")
-DATA_FILES          = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
-PATH_TO_SYNTHSEG    = '/data/users1/mdoan4/wirehead/dependencies/synthseg'
-CHUNKSIZE           = 10
-TARGET_COUNTER_VALUE= 5000 # Example threshold value
-
-client              = MongoClient("mongodb://" + MONGOHOST + ":27017")
-db                  = client[DBNAME]
-
-LOG_METRICS         = True
-BENCHMARK_SWAP      = True
-EXPERIMENT_KIND     = 'mongohead'
-COLLECTIONm         = 'metrics'
-EXPERIMENT_NAME     = '2024-03-19_training'
-WORKER_COUNT        = 20
-LOCAL_RUNNING       = True
-
-LABEL_MAP = np.asarray(
-    [0, 0, 1, 2, 3, 4, 0, 5, 6, 0, 7, 8, 9, 10]
-    + [11, 12, 13, 14, 15]
-    + [0] * 6
-    + [1, 16, 0, 17]
-    + [0] * 12
-    + [18, 19, 20, 21, 0, 22, 23]
-    + [0, 24, 25, 26, 27, 28, 29, 0, 0, 18, 30, 0, 31]
-    + [0] * 75
-    + [3, 4]
-    + [0] * 25
-    + [20, 21]
-    + [0] * 366,
-    dtype="int",
-).astype(np.uint8)
-
-
-def preprocess_label(lab, label_map=LABEL_MAP):
-    return label_map[lab.astype(np.uint8)]
-
-
-def preprocess_image_min_max(img: np.ndarray) -> np.ndarray:
-    "Min max scaling preprocessing for the range 0..1"
-    img = (img - img.min()) / (img.max() - img.min())
-    return img
-
-
 def my_task_id():
     task_id = os.getenv(
         "SLURM_ARRAY_TASK_ID", "0"
     )  # Default to '0' if not running under Slurm
     return int(task_id)
 
-
 def is_first_job():
     """ Returns True if the job is the first job ran on slurm """
     return my_task_id() == 0
-
 
 def tensor2bin(tensor):
     """ Serializes a torch tensor into a serialized IO buffer """ 
@@ -76,19 +23,16 @@ def tensor2bin(tensor):
     # tensor_1d = tensor.flatten()
     # tensor_1d = tensor.flatten().to(torch.uint8)
     tensor_1d = tensor.to(torch.uint8)
-
     # Serialize tensor and get binary
     buffer = io.BytesIO()
     torch.save(tensor_1d, buffer)
     tensor_binary = buffer.getvalue()
-
     return tensor_binary
 
 
 def chunk_binobj(tensor_compressed, id, kind, chunksize):
     """ Convert chunksize from megabytes to bytes """
     chunksize_bytes = chunksize * 1024 * 1024
-
     # Calculate the number of chunks
     num_chunks = len(tensor_compressed) // chunksize_bytes
     if len(tensor_compressed) % chunksize_bytes != 0:
@@ -170,6 +114,7 @@ def log_metrics(generated):
     metrics_collection.insert_one(metrics_doc)
 
 def time_each_line(func):
+    """ Debugging function to test the timings of different modules """
     def wrapper(*args, **kwargs):
         line_times = {}
         original_trace_function = sys.gettrace()
@@ -197,7 +142,6 @@ def time_each_line(func):
         return result
     return wrapper
 
-# Function to watch the counter and perform actions when a threshold is reached
 def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
     """ Watches the mongodb write collection's distinct id count
     When TARGET_COUNTER_VALUE is reached, swap() read with write"""
@@ -284,22 +228,20 @@ def run_generator():
 
     def create_generator(task_id, training_seg=None):
         """ Creates a brain generator object. Should contain all the dependencies of the brain generator"""
+        # TODO: Convert this to an actual generator that yields a (input, label) pair
+        # instead of hardcoding the generate call in generate_and_insert
+        # So next(generator) instead of brain_generator.generate_brain()
+
 
         sys.path.append(PATH_TO_SYNTHSEG)
         from SynthSeg.brain_generator import BrainGenerator
 
 
         initialize_gpu()
-        # TODO: Convert this to an actual generator that yields a (input, label) pair
-        # instead of hardcoding the generate call in generate_and_insert
-        # So next(generator) instead of brain_generator.generate_brain()
-
         training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
         brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
         print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
-        while True:
-            
-            yield brain_generator.generate_brain()
+        return brain_generator
     
     print(
         "".join(["-"] * 50)
@@ -330,8 +272,3 @@ def run_manager():
         generated = watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=LOG_METRICS)
         # TODO: Make the generator also generate samples using threads
 
-if __name__ == "__main__":
-    if is_first_job(): 
-        run_manager()
-    else:
-        run_generator()
