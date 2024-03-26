@@ -4,10 +4,11 @@ import sys
 import time
 import bson
 import torch
+import threading
 import numpy as np
 from pymongo import MongoClient, ReturnDocument, ASCENDING
 
-DBNAME              = "wirehead_sergey"
+DBNAME              = "wirehead_mike"
 COLLECTIONw         = "write.bin"
 COLLECTIONr         = "read.bin"
 COLLECTIONt         = "temp.bin"
@@ -58,14 +59,15 @@ def preprocess_image_min_max(img: np.ndarray) -> np.ndarray:
     return img
 
 
-def my_task_id():
+def my_task_id() -> int:
+    """ Returns slurm task id """
     task_id = os.getenv(
         "SLURM_ARRAY_TASK_ID", "0"
     )  # Default to '0' if not running under Slurm
     return int(task_id)
 
 
-def is_first_job():
+def is_first_job() -> bool:
     """ Returns True if the job is the first job ran on slurm """
     return my_task_id() == 0
 
@@ -85,26 +87,48 @@ def tensor2bin(tensor):
     return tensor_binary
 
 
-def chunk_binobj(tensor_compressed, id, kind, chunksize):
-    """ Convert chunksize from megabytes to bytes """
-    chunksize_bytes = chunksize * 1024 * 1024
+def chunkify(data, index, chunk_size):
+    """ Converts a tuple of tensors and their labels into a list of chunks of serialized objects for mongodb """
+    def chunk_binobj(tensor_compressed, id, kind, chunksize):
+        """ Convert chunksize from megabytes to bytes """
+        chunksize_bytes = chunksize * 1024 * 1024
 
-    # Calculate the number of chunks
-    num_chunks = len(tensor_compressed) // chunksize_bytes
-    if len(tensor_compressed) % chunksize_bytes != 0:
-        num_chunks += 1
+        # Calculate the number of chunks
+        num_chunks = len(tensor_compressed) // chunksize_bytes
+        if len(tensor_compressed) % chunksize_bytes != 0:
+            num_chunks += 1
 
-    # Yield chunks
-    for i in range(num_chunks):
-        start = i * chunksize_bytes
-        end = min((i + 1) * chunksize_bytes, len(tensor_compressed))
-        chunk = tensor_compressed[start:end]
-        yield {
-            "id": id,
-            "chunk_id": i,
-            "kind": kind,
-            "chunk": bson.Binary(chunk),
-        }
+        # Yield chunks
+        for i in range(num_chunks):
+            start = i * chunksize_bytes
+            end = min((i + 1) * chunksize_bytes, len(tensor_compressed))
+            chunk = tensor_compressed[start:end]
+            yield {
+                "id": id,
+                "chunk_id": i,
+                "kind": kind,
+                "chunk": bson.Binary(chunk),
+            }
+    chunks = []
+    for (binobj, kind) in data:
+        chunks += chunk_binobj(binobj, index, kind, chunk_size)
+    return chunks
+
+def get_current_idx(counter_collection):
+    counter_doc = counter_collection.find_one_and_update(
+        {"_id": "uniqueFieldCounter"},
+        {"$inc": {"sequence_value": 1}},
+        return_document=ReturnDocument.BEFORE,
+    )
+    return counter_doc["sequence_value"]
+
+def push_chunks(collection_bin, chunks):
+    try:
+        collection_bin.insert_many(chunks)
+    except Exception as e:
+        print(f"An error occurred: {e}", flush=True)
+        print(f"I expect you are renaming the collection", flush=True)
+        time.sleep(1)
 
 
 def assert_sequence(collection, TARGET_COUNTER_VALUE):
@@ -152,6 +176,7 @@ def reset_counter_and_collection(write_collection, counter_collection):
     write_collection.create_index([("id", ASCENDING)], background=True)
 
 def log_metrics(generated):
+    """ Pushes generator metrics onto database """
     experiment_name     = EXPERIMENT_NAME 
     kind                = "manager"
     curr_time           = time.time()
@@ -169,39 +194,10 @@ def log_metrics(generated):
     # Insert the metrics document into the metrics collection
     metrics_collection.insert_one(metrics_doc)
 
-def time_each_line(func):
-    def wrapper(*args, **kwargs):
-        line_times = {}
-        original_trace_function = sys.gettrace()
-
-        def trace_function(frame, event, arg):
-            if event == 'line':
-                line_no = frame.f_lineno
-                if line_no not in line_times:
-                    line_times[line_no] = 0
-                line_times[line_no] += time.time() - trace_function.last_time
-            trace_function.last_time = time.time()
-            return trace_function
-
-        sys.settrace(trace_function)
-        trace_function.last_time = time.time()
-
-        result = func(*args, **kwargs)
-
-        sys.settrace(original_trace_function)
-
-        if BENCHMARK_SWAP:
-            for line_no, line_time in line_times.items():
-                print(f"Line {line_no}: {line_time:.6f} seconds")
-
-        return result
-    return wrapper
-
 # Function to watch the counter and perform actions when a threshold is reached
 def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
     """ Watches the mongodb write collection's distinct id count
     When TARGET_COUNTER_VALUE is reached, swap() read with write"""
-    @time_each_line
     def swap(generated):
         # Actions to be taken when the threshold is reached
         # Renaming the collection and creating a new one
@@ -238,69 +234,22 @@ def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
     return generated
 
 def generate_and_insert(
-    brain_generator, collection_bin, counter_collection, chunk_size
+    generator, collection_bin, counter_collection, chunk_size
 ):
     """ Preprocesses each sample from a generator and pushes it to mongodb """
-    img, lab = brain_generator.generate_brain()
-    img = preprocess_image_min_max(img) * 255
-    img = img.astype(np.uint8)
-    lab = preprocess_label(lab)
+    # 0. Fetch data from generator
+    data = next(generator)
+    print('ding') #TODO: remove flag
+    # 1. Get the correct index for this current sample
+    index = get_current_idx(counter_collection)
+    # 2. Turn the data into a list of serialized chunks  
+    chunks = chunkify(data, index, chunk_size)
+    # 3. Push to mongodb + error handling
+    push_chunks(collection_bin, chunks)
 
-    img_tensor = tensor2bin(torch.from_numpy(img))
-    lab_tensor = tensor2bin(torch.from_numpy(lab))
-
-    counter_doc = counter_collection.find_one_and_update(
-        {"_id": "uniqueFieldCounter"},
-        {"$inc": {"sequence_value": 1}},
-        return_document=ReturnDocument.BEFORE,
-    )
-    index = counter_doc["sequence_value"]
-    chunks = list(chunk_binobj(img_tensor, index, "data", chunk_size)) + list(
-        chunk_binobj(lab_tensor, index, "label", chunk_size)
-    )
-
-    try:
-        collection_bin.insert_many(chunks)
-    except Exception as e:
-        print(f"An error occurred: {e}", flush=True)
-        print(f"I expect you are renaming the collection", flush=True)
-        time.sleep(1)
-    
-def run_generator():
+def initialize_generator():
     """ Initializes and runs a SynthSeg brain generator in a loop,
         preprocesses, then pushes to mongoDB"""
-
-    def initialize_gpu():
-        import tensorflow as tf
-        gpus = tf.config.experimental.list_physical_devices("GPU")
-        if gpus:
-            try:
-                # Currently, memory growth needs to be the same across GPUs
-                for gpu in gpus:
-                    tf.config.experimental.set_memory_growth(gpu, True)
-            except RuntimeError as e:
-                # Memory growth must be set before GPUs have been initialized
-                print(e)
-
-    def create_generator(task_id, training_seg=None):
-        """ Creates a brain generator object. Should contain all the dependencies of the brain generator"""
-
-        sys.path.append(PATH_TO_SYNTHSEG)
-        from SynthSeg.brain_generator import BrainGenerator
-
-
-        initialize_gpu()
-        # TODO: Convert this to an actual generator that yields a (input, label) pair
-        # instead of hardcoding the generate call in generate_and_insert
-        # So next(generator) instead of brain_generator.generate_brain()
-
-        training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
-        brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
-        print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
-        while True:
-            
-            yield brain_generator.generate_brain()
-    
     print(
         "".join(["-"] * 50)
         + "\nI am a worker "
@@ -315,7 +264,7 @@ def run_generator():
             brain_generator, db[COLLECTIONw], db[COLLECTIONc], CHUNKSIZE
         )
    
-def run_manager():
+def initialze_manager():
     """ Initializes the database manager, swaps the mongo collections whenever TARGET_COUNTER_VALUE is hit. """
     print(
         "".join(["-"] * 50)
@@ -328,10 +277,59 @@ def run_manager():
     generated = 0
     while True:
         generated = watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=LOG_METRICS)
-        # TODO: Make the generator also generate samples using threads
+
+
+
+
+
+
+
+
+
+
+### Userland stuff ###
+
+def create_generator(task_id, training_seg=None):
+    """ Creates a brain generator iterartor. Should contain all the dependencies of the brain generator"""
+    """ : yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
+    def initialize_gpu():
+        import tensorflow as tf
+        gpus = tf.config.experimental.list_physical_devices("GPU")
+        if gpus:
+            try:
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+            except RuntimeError as e:
+                print(e)
+
+    sys.path.append(PATH_TO_SYNTHSEG)
+    from SynthSeg.brain_generator import BrainGenerator
+    initialize_gpu()
+    training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
+    brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
+    print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
+    while True:
+        img, lab = brain_generator.generate_brain()
+        img = preprocess_image_min_max(img) * 255
+        img = img.astype(np.uint8)
+        lab = preprocess_label(lab)
+
+        img_tensor = tensor2bin(torch.from_numpy(img))
+        lab_tensor = tensor2bin(torch.from_numpy(lab))
+        yield ((img_tensor, lab_tensor), ('data', 'label'))
+
+def main():
+    if is_first_job(): 
+        first_job_thread = threading.Thread(target=initialze_manager, args=())
+        first_job_thread.start()
+    # Create a thread for the generator
+    generator_thread = threading.Thread(target=initialize_generator, args=())
+    # Start the threads
+    generator_thread.start()
+    # Wait for both threads to complete
+    if is_first_job():
+        first_job_thread.join()
+    generator_thread.join()
 
 if __name__ == "__main__":
-    if is_first_job(): 
-        run_manager()
-    else:
-        run_generator()
+    main()
