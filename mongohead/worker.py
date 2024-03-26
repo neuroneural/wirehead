@@ -8,6 +8,8 @@ import threading
 import numpy as np
 from pymongo import MongoClient, ReturnDocument, ASCENDING
 
+### User land ###
+
 DBNAME              = "wirehead_mike"
 COLLECTIONw         = "write.bin"
 COLLECTIONr         = "read.bin"
@@ -49,6 +51,53 @@ LABEL_MAP = np.asarray(
 ).astype(np.uint8)
 
 
+def create_generator(task_id, training_seg=None):
+    """ Creates an iterator that returns data for mongo.
+        Should contain all the dependencies of the brain generator
+        Preprocessing should be applied at this phase 
+        : yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
+
+    # 0. Optionally set up hardware configs
+    hardware_setup()
+
+    # 1. Declare your generator and its dependencies here
+    from SynthSeg.brain_generator import BrainGenerator
+    training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
+    brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
+    print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
+
+    # 2. Run your generator in a loop, and pass in your preprocessing options
+    while True:
+        img, lab = preprocessing_pipe(brain_generator.generate_brain())
+
+        # 3. Yield your data, which will atuomatically be pushed to mongo
+        yield ((img, lab), ('data', 'label'))
+
+def preprocessing_pipe(data):
+    """ Set up your preprocessing options here, ignore if none are needed """
+    img, lab = data
+    img = preprocess_image_min_max(img) * 255
+    img = img.astype(np.uint8)
+    lab = preprocess_label(lab)
+
+    img_tensor = tensor2bin(torch.from_numpy(img))
+    lab_tensor = tensor2bin(torch.from_numpy(lab))
+    # TODO: Move these out of userland
+    return (img_tensor, lab_tensor)
+
+def hardware_setup():
+    """ Clean slate to set up your hardware, ignore if none are needed """
+    import tensorflow as tf
+    gpus = tf.config.experimental.list_physical_devices("GPU")
+    if gpus:
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+        except RuntimeError as e:
+            print(e)
+    sys.path.append(PATH_TO_SYNTHSEG)
+    pass
+
 def preprocess_label(lab, label_map=LABEL_MAP):
     return label_map[lab.astype(np.uint8)]
 
@@ -58,6 +107,7 @@ def preprocess_image_min_max(img: np.ndarray) -> np.ndarray:
     img = (img - img.min()) / (img.max() - img.min())
     return img
 
+### End of user land ###
 
 def my_task_id() -> int:
     """ Returns slurm task id """
@@ -65,12 +115,6 @@ def my_task_id() -> int:
         "SLURM_ARRAY_TASK_ID", "0"
     )  # Default to '0' if not running under Slurm
     return int(task_id)
-
-
-def is_first_job() -> bool:
-    """ Returns True if the job is the first job ran on slurm """
-    return my_task_id() == 0
-
 
 def tensor2bin(tensor):
     """ Serializes a torch tensor into a serialized IO buffer """ 
@@ -88,7 +132,8 @@ def tensor2bin(tensor):
 
 
 def chunkify(data, index, chunk_size):
-    """ Converts a tuple of tensors and their labels into a list of chunks of serialized objects for mongodb """
+    """ Converts a tuple of tensors and their labels into 
+        a list of chunks of serialized objects for mongodb """
     def chunk_binobj(tensor_compressed, id, kind, chunksize):
         """ Convert chunksize from megabytes to bytes """
         chunksize_bytes = chunksize * 1024 * 1024
@@ -239,7 +284,6 @@ def generate_and_insert(
     """ Preprocesses each sample from a generator and pushes it to mongodb """
     # 0. Fetch data from generator
     data = next(generator)
-    print('ding') #TODO: remove flag
     # 1. Get the correct index for this current sample
     index = get_current_idx(counter_collection)
     # 2. Turn the data into a list of serialized chunks  
@@ -265,7 +309,8 @@ def initialize_generator():
         )
    
 def initialze_manager():
-    """ Initializes the database manager, swaps the mongo collections whenever TARGET_COUNTER_VALUE is hit. """
+    """ Initializes the database manager, 
+        swaps the mongo collections whenever TARGET_COUNTER_VALUE is hit. """
     print(
         "".join(["-"] * 50)
         + "\nI am the manager "
@@ -279,54 +324,15 @@ def initialze_manager():
         generated = watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=LOG_METRICS)
 
 def main():
-    if is_first_job(): 
+    """ Starts the manager if node is the first job on slurm, also start the generator """
+    if my_task_id() == 0: # Checks if the job is the first job on slurm
         first_job_thread = threading.Thread(target=initialze_manager, args=())
         first_job_thread.start()
-    # Create a thread for the generator
     generator_thread = threading.Thread(target=initialize_generator, args=())
-    # Start the threads
     generator_thread.start()
-    # Wait for both threads to complete
-    if is_first_job():
+    if my_task_id() == 0:
         first_job_thread.join()
     generator_thread.join()
-
-
-
-### Userland stuff ###
-
-def create_generator(task_id, training_seg=None):
-    """ Creates an iterator that returns data for mongo.
-        Should contain all the dependencies of the brain generator
-        Preprocessing should be applied at this phase 
-        : yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
-    def initialize_gpu():
-        import tensorflow as tf
-        gpus = tf.config.experimental.list_physical_devices("GPU")
-        if gpus:
-            try:
-                for gpu in gpus:
-                    tf.config.experimental.set_memory_growth(gpu, True)
-            except RuntimeError as e:
-                print(e)
-
-    sys.path.append(PATH_TO_SYNTHSEG)
-    from SynthSeg.brain_generator import BrainGenerator
-    initialize_gpu()
-    training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
-    brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
-    print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
-
-
-    while True:
-        img, lab = brain_generator.generate_brain()
-        img = preprocess_image_min_max(img) * 255
-        img = img.astype(np.uint8)
-        lab = preprocess_label(lab)
-
-        img_tensor = tensor2bin(torch.from_numpy(img))
-        lab_tensor = tensor2bin(torch.from_numpy(lab))
-        yield ((img_tensor, lab_tensor), ('data', 'label'))
 
 if __name__ == "__main__":
     main()
