@@ -278,20 +278,28 @@ def initialze_manager():
     while True:
         generated = watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=LOG_METRICS)
 
-
-
-
-
-
-
+def main():
+    if is_first_job(): 
+        first_job_thread = threading.Thread(target=initialze_manager, args=())
+        first_job_thread.start()
+    # Create a thread for the generator
+    generator_thread = threading.Thread(target=initialize_generator, args=())
+    # Start the threads
+    generator_thread.start()
+    # Wait for both threads to complete
+    if is_first_job():
+        first_job_thread.join()
+    generator_thread.join()
 
 
 
 ### Userland stuff ###
 
 def create_generator(task_id, training_seg=None):
-    """ Creates a brain generator iterartor. Should contain all the dependencies of the brain generator"""
-    """ : yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
+    """ Creates an iterator that returns data for mongo.
+        Should contain all the dependencies of the brain generator
+        Preprocessing should be applied at this phase 
+        : yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
     def initialize_gpu():
         import tensorflow as tf
         gpus = tf.config.experimental.list_physical_devices("GPU")
@@ -308,6 +316,8 @@ def create_generator(task_id, training_seg=None):
     training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
     brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
     print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
+
+
     while True:
         img, lab = brain_generator.generate_brain()
         img = preprocess_image_min_max(img) * 255
@@ -317,19 +327,6 @@ def create_generator(task_id, training_seg=None):
         img_tensor = tensor2bin(torch.from_numpy(img))
         lab_tensor = tensor2bin(torch.from_numpy(lab))
         yield ((img_tensor, lab_tensor), ('data', 'label'))
-
-def main():
-    if is_first_job(): 
-        first_job_thread = threading.Thread(target=initialze_manager, args=())
-        first_job_thread.start()
-    # Create a thread for the generator
-    generator_thread = threading.Thread(target=initialize_generator, args=())
-    # Start the threads
-    generator_thread.start()
-    # Wait for both threads to complete
-    if is_first_job():
-        first_job_thread.join()
-    generator_thread.join()
 
 if __name__ == "__main__":
     main()
