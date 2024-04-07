@@ -81,10 +81,12 @@ def preprocessing_pipe(data):
     img = img.astype(np.uint8)
     lab = preprocess_label(lab)
 
+    '''
     img_tensor = tensor2bin(torch.from_numpy(img))
     lab_tensor = tensor2bin(torch.from_numpy(lab))
     # TODO: Move these out of userland
-    return (img_tensor, lab_tensor)
+    '''
+    return (img, lab) 
 
 def hardware_setup():
     """ Clean slate to set up your hardware, ignore if none are needed """
@@ -149,7 +151,11 @@ def chunkify(data, index, chunk_size):
     chunks = []
     binobj, kinds = data
     for i, kind in enumerate(kinds):
-        chunks += list(chunk_binobj(binobj[i], index, kind, chunk_size)) 
+        chunks += list(
+            chunk_binobj(tensor2bin(torch.from_numpy(binobj[i])),
+                         index,
+                         kind,
+                         chunk_size)) 
     return chunks
 
 def initialize_generator():
