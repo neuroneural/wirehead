@@ -55,12 +55,13 @@ def create_generator(task_id, training_seg=None):
     """ Creates an iterator that returns data for mongo.
         Should contain all the dependencies of the brain generator
         Preprocessing should be applied at this phase 
-        : yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
+        yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
 
     # 0. Optionally set up hardware configs
     hardware_setup()
 
     # 1. Declare your generator and its dependencies here
+    sys.path.append(PATH_TO_SYNTHSEG)
     from SynthSeg.brain_generator import BrainGenerator
     training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
     brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
@@ -70,7 +71,7 @@ def create_generator(task_id, training_seg=None):
     while True:
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
 
-        # 3. Yield your data, which will atuomatically be pushed to mongo
+        # 3. Yield your data, which will automatically be pushed to mongo
         yield ((img, lab), ('data', 'label'))
 
 def preprocessing_pipe(data):
@@ -109,27 +110,18 @@ def preprocess_image_min_max(img: np.ndarray) -> np.ndarray:
 
 ### End of user land ###
 
-def my_task_id() -> int:
-    """ Returns slurm task id """
-    task_id = os.getenv(
-        "SLURM_ARRAY_TASK_ID", "0"
-    )  # Default to '0' if not running under Slurm
-    return int(task_id)
-
-def tensor2bin(tensor):
-    """ Serializes a torch tensor into a serialized IO buffer """ 
-    # Flatten tensor to 1D
-    # tensor_1d = tensor.flatten()
-    # tensor_1d = tensor.flatten().to(torch.uint8)
-    tensor_1d = tensor.to(torch.uint8)
-
-    # Serialize tensor and get binary
-    buffer = io.BytesIO()
-    torch.save(tensor_1d, buffer)
-    tensor_binary = buffer.getvalue()
-
-    return tensor_binary
-
+def generate_and_insert(
+    generator, collection_bin, counter_collection, chunk_size
+):
+    """ Preprocesses each sample from a generator and pushes it to mongodb """
+    # 0. Fetch data from generator
+    data = next(generator)
+    # 1. Get the correct index for this current sample
+    index = get_current_idx(counter_collection)
+    # 2. Turn the data into a list of serialized chunks  
+    chunks = chunkify(data, index, chunk_size)
+    # 3. Push to mongodb + error handling
+    push_chunks(collection_bin, chunks)
 
 def chunkify(data, index, chunk_size):
     """ Converts a tuple of tensors and their labels into 
@@ -155,9 +147,50 @@ def chunkify(data, index, chunk_size):
                 "chunk": bson.Binary(chunk),
             }
     chunks = []
-    for (binobj, kind) in data:
-        chunks += chunk_binobj(binobj, index, kind, chunk_size)
+    binobj, kinds = data
+    for i, kind in enumerate(kinds):
+        chunks += list(chunk_binobj(binobj[i], index, kind, chunk_size)) 
     return chunks
+
+def initialize_generator():
+    """ Initializes and runs a SynthSeg brain generator in a loop,
+        preprocesses, then pushes to mongoDB"""
+    print(
+        "".join(["-"] * 50)
+        + "\nI am a worker "
+        + "\U0001F41D"
+        + ", generating and inserting data.",
+        flush=True,
+    )
+
+    brain_generator = create_generator(my_task_id())
+    while True:
+        print('ding')
+        generate_and_insert(
+            brain_generator, db[COLLECTIONw], db[COLLECTIONc], CHUNKSIZE
+        )
+
+def my_task_id() -> int:
+    """ Returns slurm task id """
+    task_id = os.getenv(
+        "SLURM_ARRAY_TASK_ID", "0"
+    )  # Default to '0' if not running under Slurm
+    return int(task_id)
+
+def tensor2bin(tensor):
+    """ Serializes a torch tensor into a serialized IO buffer """ 
+    # Flatten tensor to 1D
+    # tensor_1d = tensor.flatten()
+    # tensor_1d = tensor.flatten().to(torch.uint8)
+    tensor_1d = tensor.to(torch.uint8)
+
+    # Serialize tensor and get binary
+    buffer = io.BytesIO()
+    torch.save(tensor_1d, buffer)
+    tensor_binary = buffer.getvalue()
+
+    return tensor_binary
+
 
 def get_current_idx(counter_collection):
     counter_doc = counter_collection.find_one_and_update(
@@ -240,7 +273,7 @@ def log_metrics(generated):
     metrics_collection.insert_one(metrics_doc)
 
 # Function to watch the counter and perform actions when a threshold is reached
-def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
+def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=LOG_METRICS):
     """ Watches the mongodb write collection's distinct id count
     When TARGET_COUNTER_VALUE is reached, swap() read with write"""
     def swap(generated):
@@ -278,35 +311,7 @@ def watch_and_swap(TARGET_COUNTER_VALUE, generated, LOG_METRICS=False):
         
     return generated
 
-def generate_and_insert(
-    generator, collection_bin, counter_collection, chunk_size
-):
-    """ Preprocesses each sample from a generator and pushes it to mongodb """
-    # 0. Fetch data from generator
-    data = next(generator)
-    # 1. Get the correct index for this current sample
-    index = get_current_idx(counter_collection)
-    # 2. Turn the data into a list of serialized chunks  
-    chunks = chunkify(data, index, chunk_size)
-    # 3. Push to mongodb + error handling
-    push_chunks(collection_bin, chunks)
 
-def initialize_generator():
-    """ Initializes and runs a SynthSeg brain generator in a loop,
-        preprocesses, then pushes to mongoDB"""
-    print(
-        "".join(["-"] * 50)
-        + "\nI am a worker "
-        + "\U0001F41D"
-        + ", generating and inserting data.",
-        flush=True,
-    )
-
-    brain_generator = create_generator(my_task_id())
-    while True:
-        generate_and_insert(
-            brain_generator, db[COLLECTIONw], db[COLLECTIONc], CHUNKSIZE
-        )
    
 def initialze_manager():
     """ Initializes the database manager, 
@@ -325,14 +330,18 @@ def initialze_manager():
 
 def main():
     """ Starts the manager if node is the first job on slurm, also start the generator """
+    """
     if my_task_id() == 0: # Checks if the job is the first job on slurm
         first_job_thread = threading.Thread(target=initialze_manager, args=())
         first_job_thread.start()
+    """
     generator_thread = threading.Thread(target=initialize_generator, args=())
     generator_thread.start()
+    """
     if my_task_id() == 0:
         first_job_thread.join()
     generator_thread.join()
+    """
 
 if __name__ == "__main__":
     main()
