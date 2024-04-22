@@ -1,44 +1,45 @@
 # wirehead #
 
-Caching system for horizontal scaling of synthetic data generators using Redis/MongoDB
+Caching system for horizontal scaling of synthetic data generators using MongoDB
 
 ---
 
-## Usage ##
+## Usage ## 
 
-- Create a generator that yields a (sample, label) pair
-- Either use the default preprocessing options in generate_and_insert() or customize your own
-- Deploy to slurm 
+See examples/synthseg/worker.py for a detailed example 
 
 ```
-#!/bin/bash
-
-#SBATCH --job-name=wireheadsergey
-#SBATCH --nodes=1
-#SBATCH -c 16
-#SBATCH --mem=50g
-#SBATCH --gres=gpu:A40:1
-#SBATCH --output=./log/generate_output_%A_%a.log
-#SBATCH --error=./log/generate_error_%A_%a.log
-#SBATCH --time=06:00:00
-#SBATCH -p qTRDGPU
-#SBATCH -A psy53c17
-#SBATCH --array=0-20
-
-echo "This is a test job running on node $(hostname)"
-echo "Error output test" >&2
-
-source /trdapps/linux-x86_64/envs/plis_conda/bin/activate /trdapps/linux-x86_64/envs/plis_conda/envs/synthseg_38
-stdbuf -o0 python mongohead/worker.py
-```
-
-- Wait for the databases to saturate (this depends on your generator pipeline)
-- Read from the database using MongoHeadDataset
-
-```
+from wirehead import Runtime 
 from pymongo import MongoClient
-from wirehead.MongoheadDataset import MongoHeadDataset
 
-db = MongoClient(mongodbhostname)[database_name]
-dataset = MongoheadDataset(collection = db[collection_name], sample = ('data', 'label'))
+# Mongo config
+DBNAME              = "wirehead_mike"
+MONGOHOST           = "arctrdcn018.rs.gsu.edu"
+client              = MongoClient("mongodb://" + MONGOHOST + ":27017")
+db                  = client[DBNAME]
+
+# Declare wirehead runtime object
+
+def create_generate():
+    """ Yields a tuple of type ((a, b,...), ('kind_a', 'kind_b',...))"""
+    ...
+    yield ret 
+
+generator           = create_generator(my_task_id())
+wirehead_runtime    = Runtime(
+    db = db,                    # Specify mongohost
+    generator = generator,      # Specify generator 
+)
+```
+
+Then, to run the generator, simply do 
+
+```
+wirehead_runtime.run_generator()
+```
+
+Or, to run the database manager,
+
+```
+wirehead_runtime.run_manager()
 ```
