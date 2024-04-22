@@ -2,7 +2,7 @@ import time
 import bson
 import torch
 import io
-from pymongo import ReturnDocument
+from pymongo import MongoClient, ReturnDocument, ASCENDING
 
 class Runtime():
     """ Wirehead runtime class, which wraps around the generator
@@ -43,13 +43,10 @@ class Runtime():
         dbw = self.db[self.COLLECTIONw]
         dbc = self.db[self.COLLECTIONc]
         LOG_METRICS = self.LOG_METRICS
-        reset_counter_and_collection(db[COLLECTIONw], db[COLLECTIONc])
+        self.reset_counter_and_collection(dbw, dbc)
         generated = 0
         while True:
-            generated = watch_and_swap(
-                TARGET_COUNTER_VALUE, 
-                generated, 
-                LOG_METRICS=LOG_METRICS)
+            generated = self.watch_and_swap(generated)
 
     def assert_sequence(self, collection):
         """Verify collection integrity"""
@@ -63,7 +60,7 @@ class Runtime():
             expected_ids_set == actual_ids_set
         ), "The ids aren't continuous from 0 to self.swap_cap - 1"
 
-    def reset_counter_and_collection(write_collection, counter_collection):
+    def reset_counter_and_collection(self, write_collection, counter_collection):
         """ Delete all documents in the main collection that have creeped in
             between the renaming and now. This operation is within a
             transaction """
@@ -97,36 +94,38 @@ class Runtime():
         print('Manager: Swap metrics logged')
         metrics_collection.insert_one(metrics_doc)
 
+    def swap(self, generated):
+        """ Actions to be taken when the threshold is reached
+            Renaming the collection and creating a new one """
+        time.sleep(2) # Buffer for incomplete ops
+        generated += self.swap_cap
+        print(f"Generated samples so far {generated}", flush=True)
+        self.db[self.COLLECTIONw].rename(self.COLLECTIONt, dropTarget=True)
+        # Now atomically reset the counter to 0 and delete whatever records
+        # may have been written between the execution of the previous line
+        # and the next
+        self.reset_counter_and_collection(
+            self.db[self.COLLECTIONw], self.db[self.COLLECTIONc]
+        )  # this is atomic
+        result = self.db[self.COLLECTIONt].delete_many(
+            {"id": {"$gt": self.swap_cap - 1}}
+        )
+        # Print the result of the deletion
+        print(f"Documents deleted: {result.deleted_count}", flush=True)
+        self.assert_sequence(self.db[self.COLLECTIONt])
+        self.db[self.COLLECTIONt].rename(self.COLLECTIONr, dropTarget=True)
+
+        if self.LOG_METRICS: log_metrics(generated)
+        return generated
+
     def watch_and_swap(self, generated):
         """ Watch the write collection and swap when full"""
-        def swap(self, generated):
-            """ Actions to be taken when the threshold is reached
-                Renaming the collection and creating a new one """
-            time.sleep(2) # Buffer for incomplete ops
-            generated += self.swap_cap
-            print(f"Generated samples so far {generated}", flush=True)
-            self.db[self.COLLECTIONw].rename(self.COLLECTIONt, dropTarget=True)
-            # Now atomically reset the counter to 0 and delete whatever records
-            # may have been written between the execution of the previous line
-            # and the next
-            reset_counter_and_collection(
-                self.db[self.COLLECTIONw], self.db[self.COLLECTIONc]
-            )  # this is atomic
-            result = self.db[self.COLLECTIONt].delete_many(
-                {"id": {"$gt": self.swap_cap - 1}}
-            )
-            # Print the result of the deletion
-            print(f"Documents deleted: {result.deleted_count}", flush=True)
-            self.assert_sequence(self.db[self.COLLECTIONt], self.swap_cap)
-            self.db[COLLECTIONt].rename(self.COLLECTIONr, dropTarget=True)
 
-            if self.LOG_METRICS: log_metrics(generated)
-            return generated
 
         counter_doc = self.db[self.COLLECTIONc].find_one(
             {"_id": "uniqueFieldCounter"})
         if counter_doc["sequence_value"] >= self.swap_cap:  # watch
-            return swap(generated)                          # swap
+            return self.swap(generated)                          # swap
         return generated
 
     # Generator Ops
@@ -329,8 +328,9 @@ if __name__ == "__main__":
     wirehead_runtime    = Runtime(
         db = db,                    # Specify mongohost
         generator = brain_generator,# Specify generator 
+        cap = 2,
     )
 
-    wirehead_runtime.run_generator()
-
+    #wirehead_runtime.run_generator()
+    wirehead_runtime.run_manager()
     print(0)
