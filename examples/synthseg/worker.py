@@ -96,14 +96,22 @@ def my_task_id() -> int:
     )  # Default to '0' if not running under Slurm
     return int(task_id)
 
-# Plug into wirehead 
-brain_generator     = create_generator(my_task_id())
-wirehead_runtime    = Runtime(
-    db = db,                    # Specify mongohost
-    generator = brain_generator,# Specify generator 
-    cap = 2,
-)
+# Function to check if this is the first job based on SLURM_ARRAY_TASK_ID
+def is_first_job():
+    return my_task_id() == 0
 
-wirehead_runtime.run_generator()
-#wirehead_runtime.run_manager()
-print(0)
+if __name__ == "__main__":
+    # Plug into wirehead 
+    brain_generator     = create_generator(my_task_id())
+    wirehead_runtime    = Runtime(
+        db = db,                    # Specify mongohost
+        generator = brain_generator,# Specify generator 
+        cap = 10,
+    )
+
+    if is_first_job():
+        wirehead_runtime.run_manager()
+    else:
+        wirehead_runtime.run_generator()
+
+    print(0)
