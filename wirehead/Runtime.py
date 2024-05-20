@@ -218,7 +218,6 @@ class Runtime():
             flush=True,
         )
         while True:
-            print("ding") #TODO: debug gen loop
             dbw = self.db[self.COLLECTIONw]
             dbc = self.db[self.COLLECTIONc]
             chunksize = self.CHUNKSIZE
