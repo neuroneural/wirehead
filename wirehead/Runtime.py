@@ -25,7 +25,6 @@ class Runtime():
             self.load_from_yaml(config_path)
 
         else: # Loads default variables if no config is specified
-            self.generator          = generator 
             self.db                 = db
             self.swap_cap           = swap_cap
             self.debug_mode         = debug_mode 
@@ -34,7 +33,7 @@ class Runtime():
                 print("No database specified, running in debug mode")
                 self.debug_mode = True
 
-
+        self.generator          = generator 
         self.CHUNKSIZE          = 10
         self.LOG_METRICS        = log_metrics
         self.EXPERIMENT_KIND    = ''
@@ -248,7 +247,13 @@ class Runtime():
             flush=True,
         )
         while True:
-            dbw = self.db[self.COLLECTIONw]
-            dbc = self.db[self.COLLECTIONc]
-            chunksize = self.CHUNKSIZE
-            self.generate_and_insert(dbw, dbc, chunksize)
+            if self.debug_mode: # Doesn't push to anywhere if in debug mode
+                dbw, dbc = None, None
+                chunksize = self.CHUNKSIZE
+                self.generate_and_insert(dbw, dbc, chunksize) 
+                print(f"Sample generated at: {time.time()}")
+            else:
+                dbw = self.db[self.COLLECTIONw]
+                dbc = self.db[self.COLLECTIONc]
+                chunksize = self.CHUNKSIZE
+                self.generate_and_insert(dbw, dbc, chunksize)
