@@ -1,4 +1,6 @@
 import time
+import yaml
+import os
 import bson
 import torch
 import io
@@ -11,21 +13,29 @@ class Runtime():
                  generator, 
                  config_path = "",
                  db = None, 
-                 cap=1000, 
+                 swap_cap=1000, 
+                 debug_mode=True, # if true, generator will not push to mongo
                  wcount=1, 
                  log_metrics=False,
-                 debug_mode=False):
+                 ):
 
+        # Loads variables from config file if path is specified
         self.config_path        = config_path
         if config_path != "" and os.path.exists(config_path):
             self.load_from_yaml(config_path)
 
-        # Config variables are overwritten if present in object declaration
-        self.db                 = db
-        self.generator          = generator 
-        self.swap_cap           = cap
+        else: # Loads default variables if no config is specified
+            self.generator          = generator 
+            self.db                 = db
+            self.swap_cap           = swap_cap
+            self.debug_mode         = debug_mode 
+            if db == None:
+                # Forces debug mode if no db is specified
+                print("No database specified, running in debug mode")
+                self.debug_mode = True
+
+
         self.CHUNKSIZE          = 10
-        self.debug_mode         = debug_mode # if true, generator will not push to mongo
         self.LOG_METRICS        = log_metrics
         self.EXPERIMENT_KIND    = ''
         self.EXPERIMENT_NAME    = ''
@@ -38,13 +48,13 @@ class Runtime():
 
     def load_from_yaml(self, config_path):
         print("Config loaded from " + config_path)
-        with open(yaml_file, 'r') as file:
+        with open(config_path, 'r') as file:
             config = yaml.safe_load(file)
 
-        self.DBNAME = config.get('DBNAME', self.DBNAME)
-        self.MONGOHOST = config.get('MONGOHOST', self.MONGOHOST)
-        self.SWAP_CAP = config.get('SWAP_CAP', self.SWAP_CAP)
-        self.client = MongoClient("mongodb://" + MONGOHOST + ":27017")
+        DBNAME = config.get('DBNAME')
+        MONGOHOST = config.get('MONGOHOST')
+        client = MongoClient("mongodb://" + MONGOHOST + ":27017")
+        self.swap_cap = config.get('SWAP_CAP')
         self.db = client[DBNAME]
     
     # Manager Ops
