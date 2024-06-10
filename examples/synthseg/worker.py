@@ -4,7 +4,7 @@ import numpy as np
 from wirehead import Runtime 
 
 # Synthseg config
-WIREHEAD_CONFIG     = sys.argv[1]
+WIREHEAD_CONFIG     = sys.argv[1] if len(sys.argv) > 1 else ""
 PATH_TO_DATA        = ("/data/users1/mdoan4/wirehead/dependencies/synthseg/data/training_label_maps/")
 DATA_FILES          = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
 PATH_TO_SYNTHSEG    = '/data/users1/mdoan4/wirehead/dependencies/synthseg'
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         config_path = WIREHEAD_CONFIG # Specify config
     )
 
-    if is_first_job():
+    if is_first_job() and WIREHEAD_CONFIG != "":
         wirehead_runtime.run_manager()
         print(f"Manager {my_task_id()} terminated")
     else:
