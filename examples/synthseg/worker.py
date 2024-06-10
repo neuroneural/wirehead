@@ -25,14 +25,13 @@ LABEL_MAP = np.asarray(
     dtype="int",
 ).astype(np.uint8)
 
-
 def preprocess_label(lab, label_map=LABEL_MAP):
     return label_map[lab.astype(np.uint8)]
 
-def preprocess_image_min_max(img: np.ndarray) -> np.ndarray:
-        "Min max scaling preprocessing for the range 0..1"
-        img = (img - img.min()) / (img.max() - img.min())
-        return img
+def preprocess_image_min_max(img: np.ndarray):
+    "Min max scaling preprocessing for the range 0..1"
+    img = (img - img.min()) / (img.max() - img.min())
+    return img
 
 def preprocessing_pipe(data):
     """ Set up your preprocessing options here, ignore if none are needed """
@@ -40,12 +39,6 @@ def preprocessing_pipe(data):
     img = preprocess_image_min_max(img) * 255
     img = img.astype(np.uint8)
     lab = preprocess_label(lab)
-
-    '''
-    img_tensor = tensor2bin(torch.from_numpy(img))
-    lab_tensor = tensor2bin(torch.from_numpy(lab))
-    # TODO: Move these out of userland
-    '''
     return (img, lab) 
 
 def hardware_setup():
@@ -84,7 +77,7 @@ def create_generator(task_id, training_seg=None):
         yield ((img, lab), ('data', 'label'))
 
 # Extras
-def my_task_id() -> int:
+def my_task_id():
     """ Returns slurm task id """
     task_id = os.getenv(
         "SLURM_ARRAY_TASK_ID", "0"
@@ -96,12 +89,6 @@ def is_first_job():
     return my_task_id() == 0
 
 if __name__ == "__main__":
-    # Mongo config
-    DBNAME              = "wirehead_mike"
-    MONGOHOST           = "arctrdcn018.rs.gsu.edu"
-    client              = MongoClient("mongodb://" + MONGOHOST + ":27017")
-    db                  = client[DBNAME]
-
     # Plug into wirehead 
     brain_generator     = create_generator(my_task_id())
     wirehead_runtime    = Runtime(
@@ -111,7 +98,7 @@ if __name__ == "__main__":
 
     if is_first_job():
         wirehead_runtime.run_manager()
+        print(f"Manager {my_task_id()} terminated")
     else:
         wirehead_runtime.run_generator()
-
-    print(0)
+        print(f"Generator {my_task_id()} terminated")
