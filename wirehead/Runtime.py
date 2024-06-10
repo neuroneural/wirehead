@@ -8,25 +8,44 @@ class Runtime():
     """ Wirehead runtime class, which wraps around the generator
         and manager runtimes."""
     def __init__(self,
-                 db, 
                  generator, 
+                 config_path = ""
+                 db = None, 
                  cap=1000, 
                  wcount=1, 
-                 log_metrics=False):
+                 log_metrics=False,
+                 debug_mode=False):
+
+        self.config_path        = config_path
+        if config_path != "" and os.path.exists(config_path):
+            self.load_from_yaml(config_path)
+
+        # Config variables are overwritten if present in object declaration
         self.db                 = db
         self.generator          = generator 
         self.swap_cap           = cap
         self.CHUNKSIZE          = 10
+        self.debug_mode         = debug_mode # if true, generator will not push to mongo
         self.LOG_METRICS        = log_metrics
         self.EXPERIMENT_KIND    = ''
         self.EXPERIMENT_NAME    = ''
         self.WORKER_COUNT       = wcount
-        self.LOCAL_RUNNING      = True
         self.COLLECTIONw        = "write.bin"
         self.COLLECTIONr        = "read.bin"
         self.COLLECTIONt        = "temp.bin"
         self.COLLECTIONc        = "counters"
         self.COLLECTIONm        = 'metrics'
+
+    def load_from_yaml(self, config_path):
+        print("Config loaded from " + config_path)
+        with open(yaml_file, 'r') as file:
+            config = yaml.safe_load(file)
+
+        self.DBNAME = config.get('DBNAME', self.DBNAME)
+        self.MONGOHOST = config.get('MONGOHOST', self.MONGOHOST)
+        self.SWAP_CAP = config.get('SWAP_CAP', self.SWAP_CAP)
+        self.client = MongoClient("mongodb://" + MONGOHOST + ":27017")
+        self.db = client[DBNAME]
     
     # Manager Ops
     def run_manager(self):
@@ -205,7 +224,8 @@ class Runtime():
         # 2. Turn the data into a list of serialized chunks  
         chunks = self.chunkify(data, index, chunk_size)
         # 3. Push to mongodb + error handling
-        self.push_chunks(collection_bin, chunks)
+        if not debug_mode:
+            self.push_chunks(collection_bin, chunks)
 
     def run_generator(self):
         """ Initializes and runs a SynthSeg brain generator in a loop,
