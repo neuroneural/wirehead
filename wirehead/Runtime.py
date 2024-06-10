@@ -9,7 +9,7 @@ class Runtime():
         and manager runtimes."""
     def __init__(self,
                  generator, 
-                 config_path = ""
+                 config_path = "",
                  db = None, 
                  cap=1000, 
                  wcount=1, 
