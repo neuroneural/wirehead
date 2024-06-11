@@ -1,0 +1,6 @@
+DBNAME: "unit-test"
+MONGOHOST: "localhost"
+SWAP_CAP: 10
+WRITE_COLLECTION: "write"
+READ_COLLECTION: "read"
+SAMPLE: ["data", "label"]
