@@ -44,6 +44,12 @@ Or, to run the database manager,
 wirehead_runtime.run_manager()
 ```
 
+## MongoDB installation 
+
+```
+https://www.mongodb.com/docs/manual/installation/
+```
+
 # TODO
 
 - [ ] Debug mode that doesn't push to mongo
@@ -54,3 +60,5 @@ wirehead_runtime.run_manager()
   - Tutorial: how to make a generator, plug into wirehead, read from wirehead
   - Internals: what manager does, what generator does
   - Deeper: what each function in either object does
+
+
