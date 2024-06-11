@@ -32,7 +32,7 @@ class Runtime():
             self.sample             = sample
             if db == None:
                 # Forces debug mode if no db is specified
-                print("No database specified, running in debug mode")
+                print("Runtime: No database specified, running in debug mode")
                 self.debug_mode = True
 
         self.generator          = generator 
@@ -48,7 +48,7 @@ class Runtime():
         self.COLLECTIONm        = 'metrics'
 
     def load_from_yaml(self, config_path):
-        print("Config loaded from " + config_path)
+        print("Runtime: Config loaded from " + config_path)
         with open(config_path, 'r') as file:
             config = yaml.safe_load(file)
 
@@ -87,12 +87,12 @@ class Runtime():
         unique_ids_count = len(collection.distinct("id"))
         assert (
             unique_ids_count == self.swap_cap
-        ), f"Expected {self.swap_cap} unique ids, found {unique_ids_count}"
+        ), f"Manager: Expected {self.swap_cap} unique ids, found {unique_ids_count}"
         expected_ids_set = set(range(self.swap_cap))
         actual_ids_set = set(collection.distinct("id"))
         assert (
             expected_ids_set == actual_ids_set
-        ), "The ids aren't continuous from 0 to self.swap_cap - 1"
+        ), "Manager: The ids aren't continuous from 0 to self.swap_cap - 1"
 
     def reset_counter_and_collection(self, write_collection, counter_collection):
         """ Delete all documents in the main collection that have creeped in
@@ -134,7 +134,7 @@ class Runtime():
         time.sleep(2) # Buffer for incomplete ops
         generated += self.swap_cap
         print("\n----swap----")
-        print(f"Generated samples so far {generated}", flush=True)
+        print(f"Manager: Generated samples so far {generated}", flush=True)
         self.db[self.COLLECTIONw].rename(self.COLLECTIONt, dropTarget=True)
         # Now atomically reset the counter to 0 and delete whatever records
         # may have been written between the execution of the previous line
@@ -146,7 +146,7 @@ class Runtime():
             {"id": {"$gt": self.swap_cap - 1}}
         )
         # Print the result of the deletion
-        print(f"Documents deleted: {result.deleted_count}", flush=True)
+        print(f"Manager: Documents deleted: {result.deleted_count}", flush=True)
         self.assert_sequence(self.db[self.COLLECTIONt])
         self.db[self.COLLECTIONt].rename(self.COLLECTIONr, dropTarget=True)
         self.db["status"].insert_one({"swapped": True})
@@ -155,8 +155,6 @@ class Runtime():
 
     def watch_and_swap(self, generated):
         """ Watch the write collection and swap when full"""
-
-
         counter_doc = self.db[self.COLLECTIONc].find_one(
             {"_id": "uniqueFieldCounter"})
         if counter_doc["sequence_value"] >= self.swap_cap:  # watch
@@ -212,7 +210,7 @@ class Runtime():
         try:
             collection_bin.insert_many(chunks)
         except Exception as e:
-            print(f"An error occurred: {e}", flush=True)
+            print(f"Generator: An error occurred: {e}", flush=True)
             print(f"I expect you are renaming the collection", flush=True)
             time.sleep(1)
 
@@ -240,7 +238,7 @@ class Runtime():
         chunks = self.chunkify(data, index, chunk_size)
         # 3. Push to mongodb + error handling
         if not self.debug_mode:
-            print(".", end = "")
+            # print(".", end = "")
             self.push_chunks(collection_bin, chunks)
 
     def run_generator(self):
