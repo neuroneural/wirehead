@@ -222,7 +222,6 @@ class Runtime():
         )
         return counter_doc["sequence_value"]
 
-
     def generate_and_insert(self,
                             collection_bin,
                             counter_collection,
