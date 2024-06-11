@@ -15,6 +15,32 @@
 echo "This is a test job running on node $(hostname)"
 echo "Error output test" >&2
 
-export PYTHONPATH=/data/users1/mdoan4/wirehead:$PYTHONPATH
-source /trdapps/linux-x86_64/envs/plis_conda/bin/activate /trdapps/linux-x86_64/envs/plis_conda/envs/synthseg_38
-stdbuf -o0 python worker.py ./config.yaml
+conda init 
+conda activate wirehead_generate
+
+# Function to terminate child processes
+terminate_child_processes() {
+    # Send SIGTERM to all child processes
+    pkill -SIGTERM -P $$
+}
+
+# Function to check if MongoDB is running
+check_mongo() {
+    if pgrep -x "mongod" > /dev/null
+    then
+        echo "MongoDB is running."
+    else
+        echo "MongoDB is not running. Please start mongod according to your system specs"
+        kill -SIGINT $$
+    fi
+}
+
+check_mongo
+
+# Trap the SIGINT signal (Ctrl+C)
+trap terminate_child_processes SIGINT
+
+stdbuf -o0 python manager.py &
+stdbuf -o0 python generator.py
+
+
