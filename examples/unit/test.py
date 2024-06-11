@@ -1,3 +1,4 @@
+import yaml
 import threading
 import numpy as np
 from wirehead import Runtime 
@@ -5,7 +6,7 @@ from wirehead import Runtime
 WIREHEAD_CONFIG = "config.yaml"
 
 def create_generator():
-    while True:
+    while True: 
         img = np.random.rand(256,256,256)
         lab = np.random.rand(256,256,256)
         yield (img, lab)

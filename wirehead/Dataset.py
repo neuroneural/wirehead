@@ -70,7 +70,7 @@ class MongoheadDataset(Dataset):
         
     def load_from_yaml(self, config_path):
         """ Loads config options from config_path """
-        print("Dataloder config loaded from " + config_path)
+        print("Dataset: config loaded from " + config_path)
         with open(config_path, "r") as file:
             config = yaml.safe_load(file)
         DBNAME = config.get("DBNAME")
@@ -88,14 +88,14 @@ class MongoheadDataset(Dataset):
         latest_status = status_collection.find_one(sort=[("_id", -1)]) 
         while latest_status == None:
             latest_status = status_collection.find_one(sort=[("_id", -1)]) 
-            print("Database does not exist, hanging")
+            print("Dataset: Database does not exist, hanging")
             time.sleep(5)
 
         swapped = latest_status.get("swapped")
         while swapped == False:
             latest_status = status_collection.find_one(sort=[("_id", -1)])
             swapped = latest_status.get("swapped")
-            print("Swap has not happened, hanging")
+            print("Dataset: Swap has not happened, hanging")
             time.sleep(5)
 
     def get_indeces(self):
