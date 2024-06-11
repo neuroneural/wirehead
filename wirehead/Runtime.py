@@ -14,6 +14,7 @@ class Runtime():
                  config_path = "",
                  db = None, 
                  swap_cap=1000, 
+                 sample = ("data", "label"),
                  debug_mode=True, # if true, generator will not push to mongo
                  wcount=1, 
                  log_metrics=False,
@@ -28,6 +29,7 @@ class Runtime():
             self.db                 = db
             self.swap_cap           = swap_cap
             self.debug_mode         = debug_mode 
+            self.sample             = sample
             if db == None:
                 # Forces debug mode if no db is specified
                 print("No database specified, running in debug mode")
@@ -53,8 +55,11 @@ class Runtime():
         DBNAME = config.get('DBNAME')
         MONGOHOST = config.get('MONGOHOST')
         client = MongoClient("mongodb://" + MONGOHOST + ":27017")
-        self.swap_cap = config.get('SWAP_CAP')
-        self.db = client[DBNAME]
+
+        self.db         = client[DBNAME]
+        self.swap_cap   = config.get('SWAP_CAP')
+        self.debug_mode = False
+        self.sample     = tuple(config.get("SAMPLE"))
     
     # Manager Ops
     def run_manager(self):
@@ -67,6 +72,7 @@ class Runtime():
             + "\U0001F468\U0001F4BC"
             + ", watching the bottomline.", 
             flush=True,)
+        self.db["status"].insert_one({"swapped": False})
         TARGET_COUNTER_VALUE = self.swap_cap
         dbw = self.db[self.COLLECTIONw]
         dbc = self.db[self.COLLECTIONc]
@@ -127,6 +133,7 @@ class Runtime():
             Renaming the collection and creating a new one """
         time.sleep(2) # Buffer for incomplete ops
         generated += self.swap_cap
+        print("\n----swap----")
         print(f"Generated samples so far {generated}", flush=True)
         self.db[self.COLLECTIONw].rename(self.COLLECTIONt, dropTarget=True)
         # Now atomically reset the counter to 0 and delete whatever records
@@ -142,7 +149,7 @@ class Runtime():
         print(f"Documents deleted: {result.deleted_count}", flush=True)
         self.assert_sequence(self.db[self.COLLECTIONt])
         self.db[self.COLLECTIONt].rename(self.COLLECTIONr, dropTarget=True)
-
+        self.db["status"].insert_one({"swapped": True})
         if self.LOG_METRICS: log_metrics(generated)
         return generated
 
@@ -153,7 +160,7 @@ class Runtime():
         counter_doc = self.db[self.COLLECTIONc].find_one(
             {"_id": "uniqueFieldCounter"})
         if counter_doc["sequence_value"] >= self.swap_cap:  # watch
-            return self.swap(generated)                          # swap
+            return self.swap(generated)                     # swap
         return generated
 
     # Generator Ops
@@ -164,12 +171,10 @@ class Runtime():
         def chunk_binobj(tensor_compressed, id, kind, chunksize):
             """ Convert chunksize from megabytes to bytes """
             chunksize_bytes = chunksize * 1024 * 1024
-
             # Calculate the number of chunks
             num_chunks = len(tensor_compressed) // chunksize_bytes
             if len(tensor_compressed) % chunksize_bytes != 0:
                 num_chunks += 1
-
             # Yield chunks
             for i in range(num_chunks):
                 start = i * chunksize_bytes
@@ -191,7 +196,8 @@ class Runtime():
             return tensor_binary
 
         chunks = []
-        binobj, kinds = data
+        binobj = data[1]
+        kinds = self.sample 
         for i, kind in enumerate(kinds):
             chunks += list(
                 chunk_binobj(
@@ -200,8 +206,6 @@ class Runtime():
                     kind,
                     chunk_size)) 
         return chunks
-
-
 
     def push_chunks(self, collection_bin, chunks):
         """ Pushes chunkified tensors to mongodb, with error handling"""
@@ -230,10 +234,13 @@ class Runtime():
         data = next(self.generator)
         # 1. Get the correct index for this current sample
         index = self.get_current_idx(counter_collection)
+        if index > self.swap_cap:
+            return # doesn't push if cap is exceeded
         # 2. Turn the data into a list of serialized chunks  
         chunks = self.chunkify(data, index, chunk_size)
         # 3. Push to mongodb + error handling
-        if not debug_mode:
+        if not self.debug_mode:
+            print(".", end = "")
             self.push_chunks(collection_bin, chunks)
 
     def run_generator(self):

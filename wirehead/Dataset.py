@@ -17,7 +17,10 @@ def qnormalize(img, qmin=0.01, qmax=0.99):
     img = (img - img.quantile(qmin)) / (img.quantile(qmax) - img.quantile(qmin))
     return img
 
-def mtransform(tensor_binary):
+def identity(data):
+    return data
+
+def binary_to_tensor(tensor_binary):
     buffer = io.BytesIO(tensor_binary)
     tensor = torch.load(buffer)
     return tensor
@@ -26,19 +29,18 @@ class MongoheadDataset(Dataset):
     """
     A dataset for fetching batches of records from a MongoDB
     """
-
     def __init__(
         self,
         config_path = "",
         collection = None,
         sample = ("data", "label"),
-        transform=mtransform,
-        normalize=unit_interval_normalize,
+        transform=binary_to_tensor,
+        normalize=identity,
         id="id",
         keeptrying=True
     ):
         """Constructor
-
+        :param config_path: path to wirehead config .yaml file
         :param indices: a set of indices to be extracted from the collection
         :param transform: a function to be applied to each extracted record
         :param collection: pymongo collection to be used
@@ -46,7 +48,6 @@ class MongoheadDataset(Dataset):
         :param id: the field to be used as an index. The `indices` are values of this field
         :param keeptrying: whether to keep retrying to fetch a record if the process failed or just report this and fail
         :returns: an object of MongoDataset class
-
         """
         self.id = id
         self.normalize = normalize
@@ -67,8 +68,8 @@ class MongoheadDataset(Dataset):
 
         self.indices = self.get_indeces()
         
-
     def load_from_yaml(self, config_path):
+        """ Loads config options from config_path """
         print("Dataloder config loaded from " + config_path)
         with open(config_path, "r") as file:
             config = yaml.safe_load(file)
@@ -76,10 +77,26 @@ class MongoheadDataset(Dataset):
         MONGOHOST = config.get("MONGOHOST")
         client = MongoClient("mongodb://" + MONGOHOST + ":27017")
         db = client[DBNAME]
+        self.wait_for_data(db)
         read_collection =  config.get("READ_COLLECTION")
 
         self.collection = db[read_collection]
         self.sample = tuple(config.get("SAMPLE"))
+
+    def wait_for_data(self, db):
+        status_collection = db["status"]
+        latest_status = status_collection.find_one(sort=[("_id", -1)]) 
+        while latest_status == None:
+            latest_status = status_collection.find_one(sort=[("_id", -1)]) 
+            print("Database does not exist, hanging")
+            time.sleep(5)
+
+        swapped = latest_status.get("swapped")
+        while swapped == False:
+            latest_status = status_collection.find_one(sort=[("_id", -1)])
+            swapped = latest_status.get("swapped")
+            print("Swap has not happened, hanging")
+            time.sleep(5)
 
     def get_indeces(self):
         last_post = self.collection['bin'].find_one(sort=[(self.id, -1)])
@@ -107,6 +124,7 @@ class MongoheadDataset(Dataset):
                 )
             ]
         )
+
     def retry_on_eof_error(retry_count, verbose=False):
         def decorator(func):
             def wrapper(self, batch, *args, **kwargs):
@@ -132,12 +150,10 @@ class MongoheadDataset(Dataset):
             return wrapper
         return decorator
 
-
-
     @retry_on_eof_error(retry_count=3, verbose=True)
     def __getitem__(self, batch):
-        # Fetch all samples for ids in the batch and where 'kind' is either
-        # data or label as specified by the sample parameter
+        """ Fetch all samples for ids in the batch and where 'kind' is either
+            data or label as specified by the sample parameter """
         samples = list(
             self.collection["bin"].find(
                 {
@@ -147,7 +163,6 @@ class MongoheadDataset(Dataset):
                 self.fields,
             )
         )
-
         results = {}
         for id in batch:
             # Separate samples for this id
@@ -166,20 +181,4 @@ class MongoheadDataset(Dataset):
                 "input": self.normalize(self.transform(data).float()),
                 "label": self.transform(label),
             }
-
         return results
-
-def name2collections(name: str, database):
-    collection_bin = database[f"{name}.bin"]
-    collection_meta = database[f"{name}.meta"]
-    return collection_bin, collection_meta
-
-
-def create_client(worker_id, dbname, colname, mongohost):
-    worker_info = get_worker_info()
-    dataset = worker_info.dataset
-    client = MongoClient("mongodb://" + mongohost + ":27017")
-    colbin, colmeta = name2collections(colname, client[dbname])
-    dataset.collection = {"bin": colbin, "meta": colmeta}
-
-
