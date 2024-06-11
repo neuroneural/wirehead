@@ -6,29 +6,24 @@ Caching system for horizontal scaling of synthetic data generators using MongoDB
 
 ## Usage ## 
 
-See examples/synthseg/worker.py for a detailed example 
+See examples/unit for a minimal example 
 
 ```
+import numpy as np
 from wirehead import Runtime 
-from pymongo import MongoClient
 
-# Mongo config
-DBNAME              = "wirehead_mike"
-MONGOHOST           = "arctrdcn018.rs.gsu.edu"
-client              = MongoClient("mongodb://" + MONGOHOST + ":27017")
-db                  = client[DBNAME]
+WIREHEAD_CONFIG = "config.yaml"
 
-# Declare wirehead runtime object
+def create_generator():
+    while True: 
+        img = np.random.rand(256,256,256)
+        lab = np.random.rand(256,256,256)
+        yield (img, lab)
 
-def create_generate():
-    """ Yields a tuple of type ((a, b,...), ('kind_a', 'kind_b',...))"""
-    ...
-    yield ret 
-
-generator           = create_generator(my_task_id())
+generator = create_generator()
 wirehead_runtime    = Runtime(
-    db = db,                    # Specify mongohost
-    generator = generator,      # Specify generator 
+    generator = generator,  # Specify generator 
+    config_path = WIREHEAD_CONFIG # Specify config
 )
 ```
 
@@ -60,5 +55,4 @@ https://www.mongodb.com/docs/manual/installation/
   - Tutorial: how to make a generator, plug into wirehead, read from wirehead
   - Internals: what manager does, what generator does
   - Deeper: what each function in either object does
-
-
+- [ ] Split manager and generator into two files?
