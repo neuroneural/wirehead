@@ -4,7 +4,7 @@ import numpy as np
 from wirehead import Runtime 
 
 # Synthseg config
-WIREHEAD_CONFIG     = sys.argv[1] if len(sys.argv) > 1 else ""
+WIREHEAD_CONFIG     = "config.yaml"
 PATH_TO_DATA        = ("/data/users1/mdoan4/wirehead/dependencies/synthseg/data/training_label_maps/")
 DATA_FILES          = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
 PATH_TO_SYNTHSEG    = '/data/users1/mdoan4/wirehead/dependencies/synthseg'
