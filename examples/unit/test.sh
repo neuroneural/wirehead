@@ -1,66 +1,39 @@
 #!/bin/bash
 
+# Function to terminate child processes
+terminate_child_processes() {
+    # Send SIGTERM to all child processes
+    pkill -SIGTERM -P $$
+}
+
 # Function to check if MongoDB is running
 check_mongo() {
     if pgrep -x "mongod" > /dev/null
     then
         echo "MongoDB is running."
     else
-        echo "MongoDB is not running. Starting MongoDB..."
-        mongod &
-        sleep 5  # Wait for MongoDB to start
-        echo "MongoDB started."
+        echo "MongoDB is not running. Please start mongod according to your system specs"
+        kill -SIGINT $$
     fi
 }
 
-# Function to run clean.py
-run_clean() {
-    python clean.py
-}
-
-run_manager() {
-    python manager.py
-}
-
-run_generator() {
-    python generator.py
-}
-
-# Function to run loader.py
-run_loader() {
-    python loader.py
-    # Send a signal to the test.py process to terminate it
-    pkill -f manager.py
-    pkill -f generator.py
-}
-
-# Check if MongoDB is running and start it if necessary
 check_mongo
 
-# Run clean.py
-run_clean
-echo
+# Trap the SIGINT signal (Ctrl+C)
+trap terminate_child_processes SIGINT
 
-# Run test.py in the background
-run_manager&
-manager_pid=$!
+python clean.py
 
-run_generator&
-generator_pid=$!
+python manager.py &
 
-# Run loader.py in the foreground
-run_loader
+python generator.py &
 
-# Wait for loader.py to finish
-wait $!
+python loader.py
 
 # Print a message indicating that both scripts have finished
-
-pkill -f manager.py
-pkill -f generator.py
-
-echo
 echo
 echo "-----------"
 echo "Test passed"
 echo "-----------"
+
+kill -SIGINT $$
