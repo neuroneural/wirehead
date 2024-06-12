@@ -1,8 +1,9 @@
 import io
 import os
-import yaml
 import time
+import yaml
 import torch
+
 from torch.utils.data import Dataset, get_worker_info
 from pymongo import MongoClient
 from pymongo.errors import OperationFailure
@@ -12,15 +13,13 @@ def unit_interval_normalize(img):
     img = (img - img.min()) / (img.max() - img.min())
     return img
 
-def qnormalize(img, qmin=0.01, qmax=0.99):
+def quantile_normalize(img, qmin=0.01, qmax=0.99):
     """Unit interval preprocessing"""
     img = (img - img.quantile(qmin)) / (img.quantile(qmax) - img.quantile(qmin))
     return img
 
-def identity(data):
-    return data
-
 def binary_to_tensor(tensor_binary):
+    """ Converts a binary io buffer to a torch tensor """
     buffer = io.BytesIO(tensor_binary)
     tensor = torch.load(buffer)
     return tensor
@@ -35,7 +34,7 @@ class MongoheadDataset(Dataset):
         collection = None,
         sample = ("data", "label"),
         transform=binary_to_tensor,
-        normalize=identity,
+        normalize=lambda x: x,
         id="id",
         keeptrying=True
     ):
@@ -47,7 +46,7 @@ class MongoheadDataset(Dataset):
         :param sample: a pair of fields to be fetched as `input` and `label`, e.g. (`T1`, `label104`)
         :param id: the field to be used as an index. The `indices` are values of this field
         :param keeptrying: whether to keep retrying to fetch a record if the process failed or just report this and fail
-        :returns: an object of MongoDataset class
+        :returns: an object of MongoheadDataset class
         """
         self.id = id
         self.normalize = normalize
