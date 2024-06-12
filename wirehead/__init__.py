@@ -1,2 +1,3 @@
-from wirehead.Runtime import Runtime
-from wirehead.Dataset import MongoheadDataset
+from wirehead.dataset import MongoheadDataset
+from wirehead.manager import WireheadManager
+from wirehead.generator import WireheadGenerator

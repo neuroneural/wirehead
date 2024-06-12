@@ -1,7 +1,7 @@
 import os
 import sys
 import numpy as np
-from wirehead import Runtime 
+from wirehead import WireheadManager, WireheadGenerator
 
 # Synthseg config
 WIREHEAD_CONFIG     = "config.yaml"
@@ -88,16 +88,10 @@ def is_first_job():
     return my_task_id() == 0
 
 if __name__ == "__main__":
-    # Plug into wirehead 
-    brain_generator     = create_generator(my_task_id())
-    wirehead_runtime    = Runtime(
-        generator = brain_generator,  # Specify generator 
-        config_path = WIREHEAD_CONFIG # Specify config
-    )
-
     if is_first_job() and WIREHEAD_CONFIG != "":
-        wirehead_runtime.run_manager()
-        print(f"Manager {my_task_id()} terminated")
+        wirehead_manager = WireheadManager(config_path = WIREHEAD_CONFIG)
+        wirehead_manager.run_manager()
     else:
-        wirehead_runtime.run_generator()
-        print(f"Generator {my_task_id()} terminated")
+        brain_generator    = create_generator(my_task_id())
+        wirehead_generator = WireheadGenerator(generator = brain_generator, config_path = WIREHEAD_CONFIG)
+        wirehead_generator.run_generator()
