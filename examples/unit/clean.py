@@ -14,13 +14,10 @@ def delete_database(client, db_name):
 def main():
     # Load the configuration from config.yaml
     config = load_config('config.yaml')
-    
     # Connect to the MongoDB server
     client = MongoClient(f"mongodb://{config['MONGOHOST']}:27017/")
-    
     # Delete the specified database
     delete_database(client, config['DBNAME'])
-    
     # Close the MongoDB connection
     client.close()
 
