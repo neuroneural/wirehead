@@ -1,8 +1,6 @@
 import numpy as np
 from wirehead import WireheadGenerator 
 
-WIREHEAD_CONFIG = "config.yaml"
-
 def create_generator():
     while True: 
         img = np.random.rand(256,256,256)
@@ -10,10 +8,9 @@ def create_generator():
         yield (img, lab)
 
 if __name__ == "__main__":
-    # Plug into wirehead 
     brain_generator     = create_generator()
     wirehead_runtime    = WireheadGenerator(
-        generator = brain_generator,  # Specify generator 
-        config_path = WIREHEAD_CONFIG # Specify config
+        generator = brain_generator,
+        config_path = "config.yaml" 
     )
     wirehead_runtime.run_generator()
