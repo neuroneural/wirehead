@@ -1,44 +1,51 @@
 """ Wirehead Generator Class """
+
 import io
+import os
 import time
 import yaml
 import bson
 import torch
 from pymongo import MongoClient, ReturnDocument
 
-class WireheadGenerator():
-    """ Wirehead runtime class, which wraps around the generator
-        and manager runtimes."""
-    def __init__(self, generator, config_path):
-        if config_path is None:
-            print("No config_path specified")
-            return
 
+class WireheadGenerator():
+    """
+    Wirehead runtime class, which wraps around the generator
+    and manager runtimes.
+    """
+    def __init__(self, generator, config_path):
+        if config_path is None or os.path.exists(config_path) is False:
+            print("No valid config specified, exiting")
+            return
         self.load_from_yaml(config_path)
         self.generator = generator
 
     def load_from_yaml(self, config_path):
         """ Loads manager configs from config_path """
-        print("Manager: Config loaded from " + config_path)
         with open(config_path, 'r') as file:
             config = yaml.safe_load(file)
         dbname = config.get('DBNAME')
         mongohost = config.get('MONGOHOST')
-        client = MongoClient("mongodb://" + mongohost + ":27017")
-        # Load configs
-        self.db         = client[dbname]
-        self.swap_cap   = config.get('SWAP_CAP')
-        self.sample     = tuple(config.get("SAMPLE"))
-        self.chunksize  = config.get("CHUNKSIZE")
-        self.COLLECTIONw = config.get("WRITE_COLLECTION") + ".bin"
-        self.COLLECTIONc = config.get("COUNTER_COLLECTION")
+        port = config.get('PORT') if config.get('PORT') is not None else 27017
+        client = MongoClient("mongodb://" + mongohost + ":" + str(port))
+
+        self.db = client[dbname]
+        self.swap_cap = config.get('SWAP_CAP')
+        self.sample = tuple(config.get("SAMPLE"))
+        self.chunksize = config.get("CHUNKSIZE")
+        self.collectionw = config.get("WRITE_COLLECTION") + ".bin"
+        self.collectionc = config.get("COUNTER_COLLECTION")
 
     def chunkify(self, data, index):
-        """ Converts a tuple of tensors and their labels into
-            a list of chunks of serialized objects for mongodb """
-
+        """
+        Converts a tuple of tensors and their labels into
+        a list of chunks of serialized objects for mongodb
+        """
         def chunk_binobj(tensor_compressed, idx, kind, chunksize):
-            """ Convert chunksize from megabytes to bytes """
+            """
+            Convert chunksize from megabytes to bytes
+            """
             chunksize_bytes = chunksize * 1024 * 1024
             # Calculate the number of chunks
             num_chunks = len(tensor_compressed) // chunksize_bytes
@@ -57,7 +64,9 @@ class WireheadGenerator():
                 }
 
         def tensor2bin(tensor):
-            """Seralize a torch tensor into an IO buffer"""
+            """
+            Seralize a torch tensor into an IO buffer
+            """
             tensor_1d = tensor.to(torch.uint8)
             buffer = io.BytesIO()
             torch.save(tensor_1d, buffer)
@@ -65,20 +74,17 @@ class WireheadGenerator():
             return tensor_binary
 
         chunks = []
-        binobj = data[1]
+        binobj = data
         kinds = self.sample
         for i, kind in enumerate(kinds):
             chunks += list(
-                chunk_binobj(
-                    tensor2bin(torch.from_numpy(binobj[i])),
-                    index,
-                    kind,
-                    self.chunksize))
+                chunk_binobj(tensor2bin(torch.from_numpy(binobj[i])), index, kind,
+                             self.chunksize))
         return chunks
 
     def push_chunks(self, chunks):
         """ Pushes chunkified tensors to mongodb, with error handling"""
-        collection_bin = self.db[self.COLLECTIONw]
+        collection_bin = self.db[self.collectionw]
         try:
             collection_bin.insert_many(chunks)
         except Exception as e:
@@ -87,10 +93,12 @@ class WireheadGenerator():
 
     def get_current_idx(self):
         """ Get current index of sample in write collection """
-        dbc = self.db[self.COLLECTIONc]
+        dbc = self.db[self.collectionc]
         counter_doc = dbc.find_one_and_update(
             {"_id": "uniqueFieldCounter"},
-            {"$inc": {"sequence_value": 1}},
+            {"$inc": {
+                "sequence_value": 1
+            }},
             return_document=ReturnDocument.BEFORE,
         )
         return counter_doc["sequence_value"]
