@@ -4,6 +4,26 @@ Caching system for horizontal scaling of synthetic data generators using MongoDB
 
 ---
 
+## Installation 
+
+These instructions are different from the regular wirehead installation instructions due to the specific dependencies of SynthSeg
+
+Instructions:
+```
+git clone git@github.com:neuroneural/wirehead.git
+python3 -m venv venv 
+source venv/bin/activate
+pip install -e .
+pip install -r requirements.txt
+```
+
+Run the test
+```
+cd examples/unit
+chmod +x test.sh
+./test.sh
+```
+
 ## Usage ## 
 
 See examples/unit for a minimal example 
@@ -50,25 +70,62 @@ data = dataset[idx]
 sample, label = data[0]['input'], data[0]['label']
 ```
 
-## Installation 
+## Config guide
 
-For hosting MongoDB, refer to the official documentation
-```
-https://www.mongodb.com/docs/manual/installation/
-```
+All wirehead configs live inside yaml files, and must be specified when declaring wirehead manager, generator and dataset objects. For the system to work, all components must use the __same__ configs.
 
-Python environment setup
-
+Basic configs:
 ```
-python3 -m venv wirehead 
-pip install -e .
-pip install -r requirements.txt
+MONGOHOST -- IP address or hostname for machine running MongoDB instance
+DBNAME -- MongoDB database name
+PORT -- Port for MongoDB instance. Defaults to 27017
+SWAP_CAP -- Size cap for read and write collections. bigger means bigger cache, and less frequent swaps. The total memory used by wirehead can be calculated with:
+        SWAP_CAP * SIZE OF YIELDED TUPLE * 2
 ```
 
-# TODO
+Advanced configs:
+```
+SAMPLE -- Array of strings denoting name of samples in data tuple. 
+WRITE_COLLECTION   -- Name of write collection (generators push to this)
+READ_COLLECTION    -- Name of read colletion (dataset reads from this)
+COUNTER_COLLECTION -- Name of counter collection for manager metrics
+TEMP_COLLECTION    -- Name of temporary collection used for moving data during swap
+CHUNKSIZE          -- Number of megabytes used for chunking data
+```
 
-- [ ] Clean up main wirehead files
-- [ ] Documentation
-  - Tutorial: how to make a generator, plug into wirehead, read from wirehead
-  - Internals: what manager does, what generator does
-  - Deeper: what each function in either object does
+---
+
+## Generator guide
+
+Wirehead's [WireheadGenerator](https://github.com/neuroneural/wirehead/blob/main/wirehead/generator.py) object takes in a generator, which is a python generator function. This function yields a tuple containing numpy arrays. The number of samples in this tuple should match the number of strings  specified in SAMPLE in config.yaml
+
+Example:
+
+config.yaml:
+```
+SAMPLE: ["input", "label"]
+```
+
+generating script:
+```
+def create_generator():
+    while True: 
+        img = np.random.rand(256,256,256)
+        lab = np.random.rand(256,256,256)
+        yield (img, lab)
+
+brain_generator = create_generator()
+wirehead_runtime = WireheadGenerator(
+    generator = brain_generator,
+    config_path = "config.yaml" 
+)
+wirehead_runtime.run_generator() an infinite loop
+```
+
+---
+
+## Citation/Contact
+
+This code is under [MIT](https://github.com/neuroneural/wirehead/blob/main/LICENSE) licensing
+
+If you have any questions specific to the Wirehead pipeline, please raise an issue or contact us at mdoan4@gsu.edu

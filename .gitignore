@@ -8,3 +8,5 @@ Synthseg/
 ext/
 mongo_tests/
 wirehead.egg-info/
+SynthSeg/
+examples/*/wirehead/
