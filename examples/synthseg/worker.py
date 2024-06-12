@@ -63,7 +63,6 @@ def create_generator(task_id, training_seg=None):
 
     # 0. Optionally set up hardware configs
     hardware_setup()
-
     # 1. Declare your generator and its dependencies here
     sys.path.append(PATH_TO_SYNTHSEG)
     from SynthSeg.brain_generator import BrainGenerator
@@ -74,7 +73,7 @@ def create_generator(task_id, training_seg=None):
     while True:
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
         # 3. Yield your data, which will automatically be pushed to mongo
-        yield ((img, lab), ('data', 'label'))
+        yield (img, lab)
 
 # Extras
 def my_task_id():
