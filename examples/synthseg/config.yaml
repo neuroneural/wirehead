@@ -1,0 +1,6 @@
+DBNAME: "synthseg-example"
+MONGOHOST: "arctrdcn018.rs.gsu.edu"
+SWAP_CAP: 100
+WRITE_COLLECTION: "write"
+READ_COLLECTION: "read"
+SAMPLE: ["data", "label"]

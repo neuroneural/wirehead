@@ -1,4 +1,6 @@
 import time
+import yaml
+import os
 import bson
 import torch
 import io
@@ -8,25 +10,56 @@ class Runtime():
     """ Wirehead runtime class, which wraps around the generator
         and manager runtimes."""
     def __init__(self,
-                 db, 
                  generator, 
-                 cap=1000, 
+                 config_path = "",
+                 db = None, 
+                 swap_cap=1000, 
+                 sample = ("data", "label"),
+                 debug_mode=True, # if true, generator will not push to mongo
                  wcount=1, 
-                 log_metrics=False):
-        self.db                 = db
+                 log_metrics=False,
+                 ):
+
+        # Loads variables from config file if path is specified
+        self.config_path        = config_path
+        if config_path != "" and os.path.exists(config_path):
+            self.load_from_yaml(config_path)
+
+        else: # Loads default variables if no config is specified
+            self.db                 = db
+            self.swap_cap           = swap_cap
+            self.debug_mode         = debug_mode 
+            self.sample             = sample
+            if db == None:
+                # Forces debug mode if no db is specified
+                print("Runtime: No database specified, running in debug mode")
+                self.debug_mode = True
+
         self.generator          = generator 
-        self.swap_cap           = cap
         self.CHUNKSIZE          = 10
         self.LOG_METRICS        = log_metrics
         self.EXPERIMENT_KIND    = ''
         self.EXPERIMENT_NAME    = ''
         self.WORKER_COUNT       = wcount
-        self.LOCAL_RUNNING      = True
         self.COLLECTIONw        = "write.bin"
         self.COLLECTIONr        = "read.bin"
         self.COLLECTIONt        = "temp.bin"
         self.COLLECTIONc        = "counters"
         self.COLLECTIONm        = 'metrics'
+
+    def load_from_yaml(self, config_path):
+        print("Runtime: Config loaded from " + config_path)
+        with open(config_path, 'r') as file:
+            config = yaml.safe_load(file)
+
+        DBNAME = config.get('DBNAME')
+        MONGOHOST = config.get('MONGOHOST')
+        client = MongoClient("mongodb://" + MONGOHOST + ":27017")
+
+        self.db         = client[DBNAME]
+        self.swap_cap   = config.get('SWAP_CAP')
+        self.debug_mode = False
+        self.sample     = tuple(config.get("SAMPLE"))
     
     # Manager Ops
     def run_manager(self):
@@ -39,6 +72,7 @@ class Runtime():
             + "\U0001F468\U0001F4BC"
             + ", watching the bottomline.", 
             flush=True,)
+        self.db["status"].insert_one({"swapped": False})
         TARGET_COUNTER_VALUE = self.swap_cap
         dbw = self.db[self.COLLECTIONw]
         dbc = self.db[self.COLLECTIONc]
@@ -53,12 +87,12 @@ class Runtime():
         unique_ids_count = len(collection.distinct("id"))
         assert (
             unique_ids_count == self.swap_cap
-        ), f"Expected {self.swap_cap} unique ids, found {unique_ids_count}"
+        ), f"Manager: Expected {self.swap_cap} unique ids, found {unique_ids_count}"
         expected_ids_set = set(range(self.swap_cap))
         actual_ids_set = set(collection.distinct("id"))
         assert (
             expected_ids_set == actual_ids_set
-        ), "The ids aren't continuous from 0 to self.swap_cap - 1"
+        ), "Manager: The ids aren't continuous from 0 to self.swap_cap - 1"
 
     def reset_counter_and_collection(self, write_collection, counter_collection):
         """ Delete all documents in the main collection that have creeped in
@@ -99,7 +133,8 @@ class Runtime():
             Renaming the collection and creating a new one """
         time.sleep(2) # Buffer for incomplete ops
         generated += self.swap_cap
-        print(f"Generated samples so far {generated}", flush=True)
+        print("\n----swap----")
+        print(f"Manager: Generated samples so far {generated}", flush=True)
         self.db[self.COLLECTIONw].rename(self.COLLECTIONt, dropTarget=True)
         # Now atomically reset the counter to 0 and delete whatever records
         # may have been written between the execution of the previous line
@@ -111,21 +146,19 @@ class Runtime():
             {"id": {"$gt": self.swap_cap - 1}}
         )
         # Print the result of the deletion
-        print(f"Documents deleted: {result.deleted_count}", flush=True)
+        print(f"Manager: Documents deleted: {result.deleted_count}", flush=True)
         self.assert_sequence(self.db[self.COLLECTIONt])
         self.db[self.COLLECTIONt].rename(self.COLLECTIONr, dropTarget=True)
-
+        self.db["status"].insert_one({"swapped": True})
         if self.LOG_METRICS: log_metrics(generated)
         return generated
 
     def watch_and_swap(self, generated):
         """ Watch the write collection and swap when full"""
-
-
         counter_doc = self.db[self.COLLECTIONc].find_one(
             {"_id": "uniqueFieldCounter"})
         if counter_doc["sequence_value"] >= self.swap_cap:  # watch
-            return self.swap(generated)                          # swap
+            return self.swap(generated)                     # swap
         return generated
 
     # Generator Ops
@@ -136,12 +169,10 @@ class Runtime():
         def chunk_binobj(tensor_compressed, id, kind, chunksize):
             """ Convert chunksize from megabytes to bytes """
             chunksize_bytes = chunksize * 1024 * 1024
-
             # Calculate the number of chunks
             num_chunks = len(tensor_compressed) // chunksize_bytes
             if len(tensor_compressed) % chunksize_bytes != 0:
                 num_chunks += 1
-
             # Yield chunks
             for i in range(num_chunks):
                 start = i * chunksize_bytes
@@ -163,7 +194,8 @@ class Runtime():
             return tensor_binary
 
         chunks = []
-        binobj, kinds = data
+        binobj = data[1]
+        kinds = self.sample 
         for i, kind in enumerate(kinds):
             chunks += list(
                 chunk_binobj(
@@ -173,14 +205,12 @@ class Runtime():
                     chunk_size)) 
         return chunks
 
-
-
     def push_chunks(self, collection_bin, chunks):
         """ Pushes chunkified tensors to mongodb, with error handling"""
         try:
             collection_bin.insert_many(chunks)
         except Exception as e:
-            print(f"An error occurred: {e}", flush=True)
+            print(f"Generator: An error occurred: {e}", flush=True)
             print(f"I expect you are renaming the collection", flush=True)
             time.sleep(1)
 
@@ -192,7 +222,6 @@ class Runtime():
         )
         return counter_doc["sequence_value"]
 
-
     def generate_and_insert(self,
                             collection_bin,
                             counter_collection,
@@ -202,10 +231,14 @@ class Runtime():
         data = next(self.generator)
         # 1. Get the correct index for this current sample
         index = self.get_current_idx(counter_collection)
+        if index > self.swap_cap:
+            return # doesn't push if cap is exceeded
         # 2. Turn the data into a list of serialized chunks  
         chunks = self.chunkify(data, index, chunk_size)
         # 3. Push to mongodb + error handling
-        self.push_chunks(collection_bin, chunks)
+        if not self.debug_mode:
+            # print(".", end = "")
+            self.push_chunks(collection_bin, chunks)
 
     def run_generator(self):
         """ Initializes and runs a SynthSeg brain generator in a loop,
@@ -218,7 +251,13 @@ class Runtime():
             flush=True,
         )
         while True:
-            dbw = self.db[self.COLLECTIONw]
-            dbc = self.db[self.COLLECTIONc]
-            chunksize = self.CHUNKSIZE
-            self.generate_and_insert(dbw, dbc, chunksize)
+            if self.debug_mode: # Doesn't push to anywhere if in debug mode
+                dbw, dbc = None, None
+                chunksize = self.CHUNKSIZE
+                self.generate_and_insert(dbw, dbc, chunksize) 
+                print(f"Sample generated at: {time.time()}")
+            else:
+                dbw = self.db[self.COLLECTIONw]
+                dbc = self.db[self.COLLECTIONc]
+                chunksize = self.CHUNKSIZE
+                self.generate_and_insert(dbw, dbc, chunksize)
