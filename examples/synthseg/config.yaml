@@ -1,6 +1,11 @@
-DBNAME: "synthseg-example"
 MONGOHOST: "arctrdcn018.rs.gsu.edu"
-SWAP_CAP: 100
+DBNAME: "synthseg-example"
+SWAP_CAP: 10
+
+# Change if you know what you're doing
+SAMPLE: ["data", "label"]
 WRITE_COLLECTION: "write"
 READ_COLLECTION: "read"
-SAMPLE: ["data", "label"]
+COUNTER_COLLECTION: "counter"
+TEMP_COLLECTION: "temp"
+CHUNKSIZE: 10

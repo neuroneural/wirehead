@@ -47,12 +47,16 @@ https://www.mongodb.com/docs/manual/installation/
 
 # TODO
 
-- [ ] Debug mode that doesn't push to mongo
-- [ ] Load config from yaml
-- [ ] Simplify userland script even more
-- [ ] Unit test: random numpy array, write and read to mongo from same script
+- [x] Split Runtime into Manager.py and Generator.py
+- [ ] Merge into synthseg 
+
+
+
+
+
 - [ ] Documentation
   - Tutorial: how to make a generator, plug into wirehead, read from wirehead
   - Internals: what manager does, what generator does
   - Deeper: what each function in either object does
 - [ ] Split manager and generator into two files?
+- [ ] Dump manager lock behavior into manager class?
