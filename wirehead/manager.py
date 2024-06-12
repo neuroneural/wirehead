@@ -23,7 +23,7 @@ class WireheadManager():
         """
         Loads manager configs from config_path.
         """
-        with open(config_path, 'r', encoding = 'utf-8') as file:
+        with open(config_path, 'r', encoding='utf-8') as file:
             config = yaml.safe_load(file)
 
         dbname = config.get('DBNAME')
