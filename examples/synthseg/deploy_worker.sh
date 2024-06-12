@@ -15,7 +15,7 @@
 echo "This is a Synthseg generation job running on node $(hostname)"
 echo "Error output test" >&2
 
-conda init 
-conda activate wirehead_generate
+export PYTHONPATH=/data/users1/mdoan4/wirehead:$PYTHONPATH
+source /trdapps/linux-x86_64/envs/plis_conda/bin/activate /trdapps/linux-x86_64/envs/plis_conda/envs/synthseg_38
 
 stdbuf -o0 python worker.py
