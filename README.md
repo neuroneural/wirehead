@@ -47,10 +47,13 @@ https://www.mongodb.com/docs/manual/installation/
 
 # TODO
 
-- [ ] Split Runtime into Manager.py and Generator.py
+- [x] Split Runtime into Manager.py and Generator.py
+- [ ] Merge into synthseg 
 
-- [ ] Debug mode that doesn't push to mongo
-- [ ] Unit test: random numpy array, write and read to mongo from same script
+
+
+
+
 - [ ] Documentation
   - Tutorial: how to make a generator, plug into wirehead, read from wirehead
   - Internals: what manager does, what generator does
