@@ -1,10 +1,12 @@
+""" Wirehead dataset class for MongoDB """
+
 import io
 import os
+import sys
 import time
 import yaml
 import torch
-
-from torch.utils.data import Dataset, get_worker_info
+from torch.utils.data import Dataset
 from pymongo import MongoClient
 from pymongo.errors import OperationFailure
 
@@ -46,9 +48,10 @@ class MongoheadDataset(Dataset):
         :param indices: a set of indices to be extracted from the collection
         :param transform: a function to be applied to each extracted record
         :param collection: pymongo collection to be used
-        :param sample: a pair of fields to be fetched as `input` and `label`, e.g. (`T1`, `label104`)
+        :param sample: a pair of fields to be fetched as `input` and `label`
+                       , e.g. (`T1`, `label104`)
         :param id: the field to be used as an index. The `indices` are values of this field
-        :param keeptrying: whether to keep retrying to fetch a record if the process failed or just report this and fail
+        :param keeptrying: whether to attempt a refetch if first attempt fails
         :returns: an object of MongoheadDataset class
         """
         self.id = id
@@ -67,41 +70,50 @@ class MongoheadDataset(Dataset):
         self.indices = self.get_indeces()
 
     def load_from_yaml(self, config_path):
-        """ Loads config options from config_path """
+        """
+        Loads config options from config_path
+        """
         print("Dataset: config loaded from " + config_path)
         with open(config_path, "r") as file:
             config = yaml.safe_load(file)
-        DBNAME = config.get("DBNAME")
-        MONGOHOST = config.get("MONGOHOST")
-        client = MongoClient("mongodb://" + MONGOHOST + ":27017")
-        db = client[DBNAME]
+        dbname = config.get('DBNAME')
+        mongohost = config.get('MONGOHOST')
+        port = config.get('PORT') if config.get('PORT') is not None else 27017
+        client = MongoClient("mongodb://" + mongohost + ":" + str(port))
+
+        db = client[dbname]
         self.wait_for_data(db)
         read_collection = config.get("READ_COLLECTION")
-
         self.collection = db[read_collection]
         self.sample = tuple(config.get("SAMPLE"))
 
     def wait_for_data(self, db):
+        """
+        Prevents data object from reading before data is ready
+        """
         status_collection = db["status"]
         latest_status = status_collection.find_one(sort=[("_id", -1)])
-        while latest_status == None:
+        while latest_status is None:
             latest_status = status_collection.find_one(sort=[("_id", -1)])
             print("Dataset: Database does not exist, hanging")
             time.sleep(5)
 
         swapped = latest_status.get("swapped")
-        while swapped == False:
+        while swapped is False:
             latest_status = status_collection.find_one(sort=[("_id", -1)])
             swapped = latest_status.get("swapped")
             print("Dataset: Swap has not happened, hanging")
             time.sleep(5)
 
     def get_indeces(self):
+        """
+        Retrieve the index array of samples in read collection
+        """
         last_post = self.collection['bin'].find_one(sort=[(self.id, -1)])
 
         if last_post is None:
             print("Empty collection, exiting")
-            exit()
+            sys.exit()
         num_examples = int(last_post[self.id] + 1)
         return range(num_examples)
 
@@ -109,6 +121,9 @@ class MongoheadDataset(Dataset):
         return len(self.indices)
 
     def make_serial(self, samples_for_id, kind):
+        """
+        Converts collection chunks into a contiguous byte sequence
+        """
         return b"".join([
             sample["chunk"] for sample in sorted(
                 (sample for sample in samples_for_id if sample["kind"] == kind),
@@ -117,6 +132,9 @@ class MongoheadDataset(Dataset):
         ])
 
     def retry_on_eof_error(retry_count, verbose=False):
+        """
+        Error handling for reads that happen mid swap
+        """
 
         def decorator(func):
 
@@ -128,17 +146,16 @@ class MongoheadDataset(Dataset):
                     except (
                             EOFError,
                             OperationFailure,
-                    ) as e:    # Specifically catching EOFError
+                    ) as exception:    # Specifically catching EOFError
                         if self.keeptrying:
                             if verbose:
                                 print(
                                     f"EOFError caught. Retrying {attempt+1}/{retry_count}"
                                 )
                             time.sleep(1)
-                            myException = e
                             continue
                         else:
-                            raise e
+                            raise exception
                 raise myException("Failed after multiple retries.")
 
             return wrapper
@@ -147,8 +164,10 @@ class MongoheadDataset(Dataset):
 
     @retry_on_eof_error(retry_count=3, verbose=True)
     def __getitem__(self, batch):
-        """ Fetch all samples for ids in the batch and where 'kind' is either
-            data or label as specified by the sample parameter """
+        """
+        Fetch all samples for ids in the batch and where 'kind' is either
+        data or label as specified by the sample parameter
+        """
         samples = list(self.collection["bin"].find(
             {
                 self.id: {

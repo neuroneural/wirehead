@@ -14,6 +14,7 @@ class WireheadGenerator():
     Wirehead runtime class, which wraps around the generator
     and manager runtimes.
     """
+
     def __init__(self, generator, config_path):
         if config_path is None or os.path.exists(config_path) is False:
             print("No valid config specified, exiting")
@@ -23,7 +24,7 @@ class WireheadGenerator():
 
     def load_from_yaml(self, config_path):
         """ Loads manager configs from config_path """
-        with open(config_path, 'r') as file:
+        with open(config_path, 'r', encoding='utf-8') as file:
             config = yaml.safe_load(file)
         dbname = config.get('DBNAME')
         mongohost = config.get('MONGOHOST')
@@ -42,6 +43,7 @@ class WireheadGenerator():
         Converts a tuple of tensors and their labels into
         a list of chunks of serialized objects for mongodb
         """
+
         def chunk_binobj(tensor_compressed, idx, kind, chunksize):
             """
             Convert chunksize from megabytes to bytes
@@ -87,8 +89,8 @@ class WireheadGenerator():
         collection_bin = self.db[self.collectionw]
         try:
             collection_bin.insert_many(chunks)
-        except Exception as e:
-            print(f"Generator: An error occurred: {e}, are you swapping?")
+        except Exception as exception:
+            print(f"Generator: An error occurred: {exception}, are you swapping?")
             time.sleep(1)
 
     def get_current_idx(self):
