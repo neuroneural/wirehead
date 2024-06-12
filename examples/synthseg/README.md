@@ -8,6 +8,8 @@ This is specific to running SynthSeg and Wirehead locally. For instructions to r
 
 ## Installation 
 
+These instructions are different from the regular wirehead installation instructions due to the specific dependencies of SynthSeg
+
 Instructions:
 ```
 git clone git@github.com:neuroneural/wirehead.git
@@ -110,7 +112,8 @@ SynthSeg/data/training_label_maps/
 
 To replace the data used for SynthSeg generation, modify the PATH_TO_DATA and DATA_FILES array with the path to your desired .nii.gz files
 
-Preprocessing can be done inside the generator function. See generator.py for a more detailed example:
+Preprocessing can be done inside the generator function. See [generator.py](https://github.com/neuroneural/wirehead/blob/doc/examples/synthseg/generator.py) for a more detailed example:
+
 
 While quantization to smaller dtypes isn't strictly necessary, it is highly recommended.
 
