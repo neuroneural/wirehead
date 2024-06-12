@@ -2,9 +2,9 @@ import os
 import sys
 import numpy as np
 from wirehead import Runtime 
-from pymongo import MongoClient
 
 # Synthseg config
+WIREHEAD_CONFIG     = "config.yaml"
 PATH_TO_DATA        = ("/data/users1/mdoan4/wirehead/dependencies/synthseg/data/training_label_maps/")
 DATA_FILES          = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
 PATH_TO_SYNTHSEG    = '/data/users1/mdoan4/wirehead/dependencies/synthseg'
@@ -25,14 +25,13 @@ LABEL_MAP = np.asarray(
     dtype="int",
 ).astype(np.uint8)
 
-
 def preprocess_label(lab, label_map=LABEL_MAP):
     return label_map[lab.astype(np.uint8)]
 
-def preprocess_image_min_max(img: np.ndarray) -> np.ndarray:
-        "Min max scaling preprocessing for the range 0..1"
-        img = (img - img.min()) / (img.max() - img.min())
-        return img
+def preprocess_image_min_max(img: np.ndarray):
+    "Min max scaling preprocessing for the range 0..1"
+    img = (img - img.min()) / (img.max() - img.min())
+    return img
 
 def preprocessing_pipe(data):
     """ Set up your preprocessing options here, ignore if none are needed """
@@ -40,12 +39,6 @@ def preprocessing_pipe(data):
     img = preprocess_image_min_max(img) * 255
     img = img.astype(np.uint8)
     lab = preprocess_label(lab)
-
-    '''
-    img_tensor = tensor2bin(torch.from_numpy(img))
-    lab_tensor = tensor2bin(torch.from_numpy(lab))
-    # TODO: Move these out of userland
-    '''
     return (img, lab) 
 
 def hardware_setup():
@@ -70,7 +63,6 @@ def create_generator(task_id, training_seg=None):
 
     # 0. Optionally set up hardware configs
     hardware_setup()
-
     # 1. Declare your generator and its dependencies here
     sys.path.append(PATH_TO_SYNTHSEG)
     from SynthSeg.brain_generator import BrainGenerator
@@ -81,10 +73,10 @@ def create_generator(task_id, training_seg=None):
     while True:
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
         # 3. Yield your data, which will automatically be pushed to mongo
-        yield ((img, lab), ('data', 'label'))
+        yield (img, lab)
 
 # Extras
-def my_task_id() -> int:
+def my_task_id():
     """ Returns slurm task id """
     task_id = os.getenv(
         "SLURM_ARRAY_TASK_ID", "0"
@@ -96,23 +88,16 @@ def is_first_job():
     return my_task_id() == 0
 
 if __name__ == "__main__":
-    # Mongo config
-    DBNAME              = "wirehead_mike"
-    MONGOHOST           = "arctrdcn018.rs.gsu.edu"
-    client              = MongoClient("mongodb://" + MONGOHOST + ":27017")
-    db                  = client[DBNAME]
-
     # Plug into wirehead 
     brain_generator     = create_generator(my_task_id())
     wirehead_runtime    = Runtime(
-        db = db,                    # Specify mongohost
-        generator = brain_generator,# Specify generator 
-        cap = 10,
+        generator = brain_generator,  # Specify generator 
+        config_path = WIREHEAD_CONFIG # Specify config
     )
 
-    if is_first_job():
+    if is_first_job() and WIREHEAD_CONFIG != "":
         wirehead_runtime.run_manager()
+        print(f"Manager {my_task_id()} terminated")
     else:
         wirehead_runtime.run_generator()
-
-    print(0)
+        print(f"Generator {my_task_id()} terminated")
