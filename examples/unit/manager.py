@@ -1,6 +1,6 @@
 import fcntl
 import numpy as np
-from wirehead import Runtime
+from wirehead import Manager
 
 WIREHEAD_CONFIG = "config.yaml"
 LOCK_FILE = "manager.lock"
@@ -10,10 +10,7 @@ if __name__ == "__main__":
     lock_file = open(LOCK_FILE, "w")
     try:
         # Plug into wirehead
-        wirehead_runtime = Runtime(
-            generator=None,  # Specify generator
-            config_path=WIREHEAD_CONFIG  # Specify config
-        )
+        wirehead_runtime = Manager(config_path=WIREHEAD_CONFIG)
         wirehead_runtime.run_manager()
         # Release the lock when the manager finishes or encounters an error
         fcntl.lockf(lock_file, fcntl.LOCK_UN)
