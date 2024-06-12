@@ -89,11 +89,11 @@ def is_first_job():
 
 if __name__ == "__main__":
     if is_first_job() and WIREHEAD_CONFIG != "":
-        wirehead_runtime    = Runtime(config_path = WIREHEAD_CONFIG)
-        wirehead_runtime.run_manager()
+        wirehead_manager = Manager(config_path = WIREHEAD_CONFIG)
+        wirehead_manager.run_manager()
         print(f"Manager {my_task_id()} terminated")
     else:
-        brain_generator     = create_generator(my_task_id())
-        wirehead_runtime = Runtime(generator = brain_generator,config_path = WIREHEAD_CONFIG)
-        wirehead_runtime.run_generator()
+        brain_generator    = create_generator(my_task_id())
+        wirehead_generator = Generator(generator = brain_generator,config_path = WIREHEAD_CONFIG)
+        wirehead_generator.run_generator()
         print(f"Generator {my_task_id()} terminated")
