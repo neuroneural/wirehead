@@ -6,7 +6,7 @@ import bson
 import torch
 from pymongo import MongoClient, ReturnDocument
 
-class Generator():
+class WireheadGenerator():
     """ Wirehead runtime class, which wraps around the generator
         and manager runtimes."""
     def __init__(self, generator, config_path):

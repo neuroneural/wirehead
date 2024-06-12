@@ -4,7 +4,7 @@ import time
 import yaml
 from pymongo import MongoClient, ASCENDING
 
-class Manager():
+class WireheadManager():
     """ Manages the state of the mongo collections in Wirehead
     :param config_path  : path to yaml file containing wirehead configs
     """
@@ -24,11 +24,11 @@ class Manager():
 
         dbname = config.get('DBNAME')
         mongohost = config.get('MONGOHOST')
-        client = MongoClient("mongodb://" + mongohost + ":27017")
+        port = config.get('PORT') if config.get('PORT') is not None else 27017
+        client = MongoClient("mongodb://" + mongohost + ":" + str(port))
 
         self.db         = client[dbname]
         self.swap_cap   = config.get('SWAP_CAP')
-        self.sample     = tuple(config.get("SAMPLE"))
         self.COLLECTIONw = config.get("WRITE_COLLECTION") + ".bin"
         self.COLLECTIONr = config.get("READ_COLLECTION") + ".bin"
         self.COLLECTIONc = config.get("COUNTER_COLLECTION")
@@ -44,7 +44,7 @@ class Manager():
         while True:
             generated = self.watch_and_swap(generated)
 
-    def assert_sequence(self, collection):
+    def verify_collection_integrity(self, collection):
         """Verify collection integrity"""
         unique_ids_count = len(collection.distinct("id"))
         assert (
@@ -80,7 +80,7 @@ class Manager():
         time.sleep(2) # Buffer for incomplete ops
         generated += self.swap_cap
         print("\n----swap----")
-        print(f"Manager: Generated samples so far {generated}", flush=True)
+        print(f"Manager: Generated samples so far {generated}")
         self.db[self.COLLECTIONw].rename(self.COLLECTIONt, dropTarget=True)
         # Now atomically reset the counter to 0 and delete whatever records
         # may have been written between the execution of the previous line
@@ -90,8 +90,8 @@ class Manager():
             {"id": {"$gt": self.swap_cap - 1}}
         )
         # Print the result of the deletion
-        print(f"Manager: Documents deleted: {result.deleted_count}", flush=True)
-        self.assert_sequence(self.db[self.COLLECTIONt])
+        print(f"Manager: Documents deleted: {result.deleted_count}")
+        self.verify_collection_integrity(self.db[self.COLLECTIONt])
         self.db[self.COLLECTIONt].rename(self.COLLECTIONr, dropTarget=True)
         self.db["status"].insert_one({"swapped": True})
         return generated

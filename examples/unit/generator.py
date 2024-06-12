@@ -1,5 +1,5 @@
 import numpy as np
-from wirehead import Generator 
+from wirehead import WireheadGenerator 
 
 WIREHEAD_CONFIG = "config.yaml"
 
@@ -12,7 +12,7 @@ def create_generator():
 if __name__ == "__main__":
     # Plug into wirehead 
     brain_generator     = create_generator()
-    wirehead_runtime    = Generator(
+    wirehead_runtime    = WireheadGenerator(
         generator = brain_generator,  # Specify generator 
         config_path = WIREHEAD_CONFIG # Specify config
     )

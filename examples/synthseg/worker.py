@@ -1,7 +1,7 @@
 import os
 import sys
 import numpy as np
-from wirehead import Manager, Generator
+from wirehead import WireheadManager, WireheadGenerator
 
 # Synthseg config
 WIREHEAD_CONFIG     = "config.yaml"
@@ -89,9 +89,9 @@ def is_first_job():
 
 if __name__ == "__main__":
     if is_first_job() and WIREHEAD_CONFIG != "":
-        wirehead_manager = Manager(config_path = WIREHEAD_CONFIG)
+        wirehead_manager = WireheadManager(config_path = WIREHEAD_CONFIG)
         wirehead_manager.run_manager()
     else:
         brain_generator    = create_generator(my_task_id())
-        wirehead_generator = Generator(generator = brain_generator, config_path = WIREHEAD_CONFIG)
+        wirehead_generator = WireheadGenerator(generator = brain_generator, config_path = WIREHEAD_CONFIG)
         wirehead_generator.run_generator()
