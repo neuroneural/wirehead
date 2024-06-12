@@ -8,11 +8,20 @@ Caching system for horizontal scaling of synthetic data generators using MongoDB
 
 See examples/unit for a minimal example 
 
+Manager:
+```
+from wirehead import WireheadManager
+
+if __name__ == "__main__":
+    wirehead_runtime = WireheadManager(config_path="config.yaml")
+    wirehead_runtime.run_manager()
+```
+
+Generator:
+
 ```
 import numpy as np
-from wirehead import Runtime 
-
-WIREHEAD_CONFIG = "config.yaml"
+from wirehead import WireheadGenerator 
 
 def create_generator():
     while True: 
@@ -20,29 +29,40 @@ def create_generator():
         lab = np.random.rand(256,256,256)
         yield (img, lab)
 
-generator = create_generator()
-wirehead_runtime    = Runtime(
-    generator = generator,  # Specify generator 
-    config_path = WIREHEAD_CONFIG # Specify config
-)
+if __name__ == "__main__":
+    brain_generator     = create_generator()
+    wirehead_runtime    = WireheadGenerator(
+        generator = brain_generator,
+        config_path = "config.yaml" 
+    )
+    wirehead_runtime.run_generator()
 ```
 
-Then, to run the generator, simply do 
-
+Dataset:
 ```
-wirehead_runtime.run_generator()
+import torch
+from wirehead import MongoheadDataset
+
+dataset = MongoheadDataset(config_path = "config.yaml")
+
+idx = [0] 
+data = dataset[idx]
+sample, label = data[0]['input'], data[0]['label']
 ```
 
-Or, to run the database manager,
+## Installation 
 
-```
-wirehead_runtime.run_manager()
-```
-
-## MongoDB installation 
-
+For hosting MongoDB, refer to the official documentation
 ```
 https://www.mongodb.com/docs/manual/installation/
+```
+
+Python environment setup
+
+```
+python3 -m venv wirehead 
+pip install -e .
+pip install -r requirements.txt
 ```
 
 # TODO
