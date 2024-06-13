@@ -23,14 +23,13 @@ from utils.generator import SynthsegDataset
 use_wandb = True 
 
 # Hyperparameters
-num_epochs = 1
-batch_size = 1
-learning_rate = 0.001
-n_channels = 1
-n_classes = 2
-
-num_samples = 128      # number of samples to generate per epoch
-num_generators = 2
+num_epochs = 1         # this should be 1 to match synthseg
+batch_size = 1         # this should be 1 to match synthseg
+learning_rate = 1e-4   # this should be 1 to match synthseg
+n_channels = 1         # unclear
+n_classes = 2          # unclear 
+num_samples = 1      # number of samples to generate per epoch
+num_generators = 1     # unclear
 dtype = torch.bfloat16  
 
 ### outside ###
@@ -42,7 +41,7 @@ os.makedirs(log_dir, exist_ok=True)
 model_path          = os.path.join(log_dir, "unet_model.pth")
 train_script_path   = os.path.join(log_dir, "train.py")
 output_path         = os.path.join(log_dir, "output.txt")
-gpu_csv_path        = log_dir+"gpu.csv"
+gpu_csv_path        = os.path.join(log_dir, "gpu.csv")
 sys.stdout = Logger(output_path)
 
 # Create CSV file and write header
