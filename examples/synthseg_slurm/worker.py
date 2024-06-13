@@ -47,7 +47,7 @@ def merge_homologs(label):#, device):
     return idx[label]
 
 def preprocess_label(lab, label_map=LABEL_MAP):
-    return label_map[lab.astype(np.uint8)]
+    return label_map[lab].astype(np.uint8)
 
 def preprocess_image_min_max(img: np.ndarray):
     "Min max scaling preprocessing for the range 0..1"
