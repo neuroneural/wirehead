@@ -24,13 +24,11 @@ sys.stdout = Logger(output_path)
 
 
 # Hyperparameters
-num_epochs = 10
+num_epochs = 1
 batch_size = 1
 learning_rate = 0.001
 n_channels = 1
 n_classes = 2
-
-num_samples = 100
 dtype = torch.bfloat16
 
 # Device configuration
@@ -40,7 +38,7 @@ model = UNet(n_channels=n_channels, n_classes=n_classes).to(device).to(dtype)
 criterion = DiceLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 # Create the dataset and dataloader
-dataset = SynthsegDataset(num_samples=num_samples)
+dataset = SynthsegDataset(num_samples=1)
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # Training loop
@@ -59,9 +57,6 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-        del inputs
-        del labels
 
         # Print progress
         if (batch_idx + 1) % 10 == 0:

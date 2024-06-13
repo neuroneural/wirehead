@@ -1,0 +1,4 @@
+Compiling list of unique labels
+processing 1/1
+Generator: SynthSeg is generating off training_seg_01.nii.gz
+Model weights, train.py script and output saved in: ./log/2024-06-13_16-10

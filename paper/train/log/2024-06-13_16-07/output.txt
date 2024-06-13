@@ -1,0 +1,3 @@
+Compiling list of unique labels
+processing 1/1
+Generator: SynthSeg is generating off training_seg_01.nii.gz
