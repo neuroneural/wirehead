@@ -38,10 +38,10 @@ dtype = torch.bfloat16
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 log_dir = f"./log/{timestamp}"
 os.makedirs(log_dir, exist_ok=True)
-model_path = os.path.join(log_dir, "unet_model.pth")
-train_script_path = os.path.join(log_dir, "train.py")
-output_path = os.path.join(log_dir, "output.txt")
-gpu_csv_path = log_dir+"gpu.csv"
+model_path          = os.path.join(log_dir, "unet_model.pth")
+train_script_path   = os.path.join(log_dir, "train.py")
+output_path         = os.path.join(log_dir, "output.txt")
+gpu_csv_path        = log_dir+"gpu.csv"
 sys.stdout = Logger(output_path)
 
 # Create CSV file and write header
