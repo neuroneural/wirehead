@@ -19,7 +19,7 @@ cd wirehead/examples/synthseg
 Install python3.8 and create an environment
 ```
 sudo apt install python3.8 python3.8-venv
-python3 -m venv wirehead 
+python3.8 -m venv wirehead 
 source wirehead/bin/activate
 ```
 
