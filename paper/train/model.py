@@ -1,4 +1,4 @@
-# from https://github.com/ssktotoro/neuro/blob/master/training/model.py
+# based on https://github.com/ssktotoro/neuro/blob/master/training/model.py
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -145,26 +145,28 @@ class UNet(nn.Module):
         self.bilinear = bilinear
 
 
-        dim0 = feat_cont
+        feat_count = 24
+        dim0 = feat_count
         dim1 = dim0 * 2
         dim2 = dim1 * 2
         dim3 = dim2 * 2
         dim4 = dim3 * 2
         dim5 = dim4 * 2
-        dim6 = dim5 * 2
 
-        self.inc =   DoubleConv(n_channels, feat_cont)
+        self.inc =   DoubleConv(n_channels, dim0)
+
         self.down1 = Down(dim0, dim1)
         self.down2 = Down(dim1, dim2)
         self.down3 = Down(dim2, dim3)
         self.down4 = Down(dim3, dim4)
         self.down5 = Down(dim4, dim5)
 
-        self.up1   = Up(dim5, dim4, bilinear=bilinear, mid_channels=256)
-        self.up2   = Up(dim4, dim3, bilinear=bilinear, mid_channels=256)
-        self.up3   = Up(dim3, dim2, bilinear=bilinear, mid_channels=256)
-        self.up4   = Up(dim2, dim1, bilinear=bilinear, mid_channels=256)
-        self.up5   = Up(dim1, dim0, bilinear=bilinear, mid_channels=256)
+        self.up1   = Up(dim5+dim4, dim4, bilinear=bilinear, mid_channels=dim4)
+        self.up2   = Up(dim4+dim3, dim3, bilinear=bilinear, mid_channels=dim3)
+        self.up3   = Up(dim3+dim2, dim2, bilinear=bilinear, mid_channels=dim2)
+        self.up4   = Up(dim2+dim1, dim1, bilinear=bilinear, mid_channels=dim1)
+        self.up5   = Up(dim1+dim0, dim0, bilinear=bilinear, mid_channels=dim0)
+
         self.outc =  OutConv(dim0, n_classes)
 
     def forward(self, x):
