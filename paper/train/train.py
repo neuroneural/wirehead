@@ -5,12 +5,13 @@ import sys
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
 
 from utils.model import UNet
 from utils.dice import DiceLoss
 from utils.misc import RandomDataset, Logger
+from utils.generator import SynthsegDataset
 
 # Save model, config and output
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -23,27 +24,30 @@ sys.stdout = Logger(output_path)
 
 
 # Hyperparameters
-num_epochs = 1
+num_epochs = 10
 batch_size = 1
 learning_rate = 0.001
 n_channels = 1
 n_classes = 2
 
+num_samples = 100
+dtype = torch.bfloat16
+
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Initialize the model, loss function, and optimizer
-model = UNet(n_channels=n_channels, n_classes=n_classes).to(device)
+model = UNet(n_channels=n_channels, n_classes=n_classes).to(device).to(dtype)
 criterion = DiceLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 # Create the dataset and dataloader
-dataset = RandomDataset(num_samples=100)
+dataset = SynthsegDataset(num_samples=num_samples)
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # Training loop
 for epoch in range(num_epochs):
     for batch_idx, (inputs, labels) in enumerate(dataloader):
-        inputs = inputs.unsqueeze(1).to(device)  # Add channel dimension
-        labels = labels.to(device)
+        inputs = inputs.unsqueeze(1).to(device).to(dtype)  # Add channel dimension
+        labels = labels.to(device).to(dtype)
 
         # Forward pass
         outputs = model(inputs)
@@ -55,6 +59,9 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        del inputs
+        del labels
 
         # Print progress
         if (batch_idx + 1) % 10 == 0:

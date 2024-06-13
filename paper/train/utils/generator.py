@@ -1,5 +1,7 @@
 import sys
 import numpy as np
+import torch
+from torch.utils.data import Dataset
 from wirehead import WireheadManager, WireheadGenerator
 
 # Synthseg config
@@ -96,6 +98,22 @@ def create_generator(task_id = 0, training_seg=None):
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
         # 3. Yield your data, which will automatically be pushed to mongo
         yield (img, lab)
+
+class SynthsegDataset(Dataset):
+    def __init__(self, task_id=0, training_seg=None, num_samples=1000):
+        self.task_id = task_id
+        self.training_seg = training_seg
+        self.dataset_length= num_samples
+        self.generator = create_generator(task_id, training_seg)
+
+    def __len__(self):
+        return self.dataset_length
+
+    def __getitem__(self, index):
+        img, lab = next(self.generator)
+        img = torch.tensor(img)
+        lab = torch.tensor(lab)
+        return img, lab
 
 if __name__ == "__main__":
     print("--LOG-- Testing generator...")
