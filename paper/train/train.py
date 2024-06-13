@@ -8,9 +8,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 
-from model import UNet
-from dice import DiceLoss
-from misc import RandomDataset, Logger
+from utils.model import UNet
+from utils.dice import DiceLoss
+from utils.misc import RandomDataset, Logger
 
 # Save model, config and output
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
