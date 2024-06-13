@@ -4,7 +4,13 @@ import time
 import subprocess
 import threading
 
-def gpu_monitor(wandb_run, csv_path, interval=0.1):
+import time
+import subprocess
+import threading
+import csv
+from datetime import datetime
+
+def gpu_monitor(wandb_run, csv_path, interval=0.1, stop_event=None):
     """
     Function to monitor GPU utilization and memory usage, log to wandb, and write to a CSV file.
     Runs in a separate thread with a specified polling interval.
@@ -14,10 +20,10 @@ def gpu_monitor(wandb_run, csv_path, interval=0.1):
         writer = csv.writer(file)
         writer.writerow(["timestamp", "gpu_util", "gpu_mem"])
 
-    try:
-        while True:
+    while not stop_event.is_set():
+        try:
             # Get current timestamp
-            timestamp = str(time.time())
+            timestamp = str(time.time()) 
 
             # Get GPU utilization and memory usage
             gpu_info = subprocess.check_output(["nvidia-smi", "--query-gpu=utilization.gpu,memory.used", "--format=csv,nounits,noheader"])
@@ -35,12 +41,12 @@ def gpu_monitor(wandb_run, csv_path, interval=0.1):
 
             # Sleep for the specified interval
             time.sleep(interval)
-    except KeyboardInterrupt:
-        # Exit the thread if the main script is interrupted
-        print("GPU monitoring thread interrupted.")
-        return
+        except KeyboardInterrupt:
+            # Exit the thread if the main script is interrupted
+            print("GPU monitoring thread interrupted.")
+            break
 
-
+    print("GPU monitoring thread stopped.")
 class Logger(object):
     def __init__(self, file_path):
         self.terminal = sys.stdout
