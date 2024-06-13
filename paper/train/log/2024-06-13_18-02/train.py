@@ -29,8 +29,7 @@ learning_rate = 0.001
 n_channels = 1
 n_classes = 2
 
-num_samples = 128      # number of samples to generate per epoch
-num_generators = 2
+num_samples = 10       # number of samples to generate per epoch
 dtype = torch.bfloat16  
 
 ### outside ###
@@ -54,7 +53,7 @@ with open(csv_path, 'w', newline='') as file:
 # Declare wandb runtime
 if use_wandb: 
     stop_event = threading.Event()
-    wandb_run = wandb.init(project="wirehead_1x3090", name=timestamp)       
+    wandb_run = wandb.init(project="wirehead_1x3090_"+timestamp)       
     # Create a separate thread for GPU monitoring
     gpu_monitor_thread = threading.Thread(
         target=gpu_monitor, args=(wandb_run, gpu_csv_path, 0.1, stop_event))
@@ -70,9 +69,7 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 dataset = SynthsegDataset(num_samples=num_samples)
 # dataset = RandomDataset(num_samples=num_samples) # for debugging 
 # dataloader = DataLoader(dataset, batch_size=batch_size)
-dataloader = DataLoader(dataset,
-                        batch_size=batch_size, 
-                        num_workers=num_generators, pin_memory=True)
+dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=4, pin_memory=True)
 samples_read = 0
 
 # Training loop

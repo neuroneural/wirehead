@@ -9,3 +9,7 @@ For installation, refer to [examples/synthseg](https://github.com/neuroneural/wi
 
 
 ---
+
+### Shortcut ###
+
+source ../../examples/synthseg/wirehead/bin/activate
