@@ -66,8 +66,8 @@ model = UNet(n_channels=n_channels, n_classes=n_classes).to(device).to(dtype)
 criterion = DiceLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 # Create the dataset and dataloader
-# dataset = SynthsegDataset(num_samples=num_samples)
-dataset = RandomDataset(num_samples=num_samples) # for debugging 
+dataset = SynthsegDataset(num_samples=num_samples)
+# dataset = RandomDataset(num_samples=num_samples) # for debugging 
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 samples_read = 0
 
