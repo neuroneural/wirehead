@@ -102,10 +102,3 @@ for epoch in range(num_epochs):
 torch.save(model.state_dict(), model_path)
 shutil.copy("train.py", train_script_path)
 print(f"Model weights, train.py script and output saved in: {log_dir}")
-if use_wandb:
-    # Kill the GPU monitoring thread
-    gpu_monitor_thread.join(timeout=1)
-    if gpu_monitor_thread.is_alive():
-        print("GPU monitoring thread did not finish within the timeout. Terminating the thread.")
-        gpu_monitor_thread._stop()
-        sys.exit()

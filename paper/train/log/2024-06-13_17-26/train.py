@@ -108,4 +108,3 @@ if use_wandb:
     if gpu_monitor_thread.is_alive():
         print("GPU monitoring thread did not finish within the timeout. Terminating the thread.")
         gpu_monitor_thread._stop()
-        sys.exit()

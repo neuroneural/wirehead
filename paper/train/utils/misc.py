@@ -24,16 +24,3 @@ class RandomDataset(Dataset):
         label_data = torch.randint(0, 2, shape, dtype=torch.int32)
         return input_data, label_data
 
-class Logger(object):
-    def __init__(self, file_path):
-        self.terminal = sys.stdout
-        self.log = open(file_path, "a")
-
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
-
-    def flush(self):
-        pass
-
-

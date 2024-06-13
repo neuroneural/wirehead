@@ -5,7 +5,7 @@ import sys
 import csv
 import time
 import subprocess
-import threading
+
 
 import wandb
 import torch
@@ -15,8 +15,7 @@ from torch.utils.data import DataLoader
 
 from utils.model import UNet
 from utils.dice import DiceLoss
-from utils.logging import Logger, gpu_monitor 
-from utils.misc import RandomDataset
+from utils.misc import Logger, RandomDataset
 from utils.generator import SynthsegDataset
 
 
@@ -34,15 +33,11 @@ sys.stdout = Logger(output_path)
 csv_path = os.path.join(log_dir, "metrics.csv")
 with open(csv_path, 'w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(["time", "dice", "epoch", "samples_read"])
+    writer.writerow(["time", "gpu_util", "gpu_mem", "dice", "epoch", "samples_read"])
 
 use_wandb = True 
 if use_wandb: 
-    wandb_run = wandb.init(project="wirehead_1x3090_"+timestamp)       
-    gpu_monitor_thread = threading.Thread(
-        target=gpu_monitor,
-        args=(wandb_run, log_dir+"gpu.csv"))
-    gpu_monitor_thread.start()
+    wandb.init(project="wirehead_1x3090_"+timestamp)       
 
 # Hyperparameters
 num_epochs = 1
@@ -65,6 +60,7 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 dataset = RandomDataset(num_samples=num_samples)
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 samples_read = 0
+start_time = time.time()
 
 for epoch in range(num_epochs):
     for batch_idx, (inputs, labels) in enumerate(dataloader):
@@ -82,15 +78,26 @@ for epoch in range(num_epochs):
         del inputs
         del labels
 
+        # Get current time and GPU utilization and memory usage
+        gpu_info = subprocess.check_output([
+            "nvidia-smi", 
+            "--query-gpu=utilization.gpu,memory.used", 
+            "--format=csv,nounits,noheader"])
+        gpu_info = gpu_info.decode('utf-8').strip().split(',')
+        gpu_util = float(gpu_info[0])
+        gpu_mem = float(gpu_info[1])
         # Update samples read
         samples_read += batch_size
-        current_time = time.time()
+
+        current_time = time.time() - start_time
         # Save metrics to CSV and wandb
         with open(csv_path, 'a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow([current_time, dice, epoch, samples_read])
+            writer.writerow([current_time, gpu_util, gpu_mem, dice, epoch, samples_read])
         if use_wandb:
             wandb.log({"time": current_time, 
+                       "gpu_util": gpu_util, 
+                       "gpu_mem": gpu_mem, 
                        "dice": dice, 
                        "epoch": epoch, 
                        "samples_read": samples_read})
@@ -102,10 +109,3 @@ for epoch in range(num_epochs):
 torch.save(model.state_dict(), model_path)
 shutil.copy("train.py", train_script_path)
 print(f"Model weights, train.py script and output saved in: {log_dir}")
-if use_wandb:
-    # Kill the GPU monitoring thread
-    gpu_monitor_thread.join(timeout=1)
-    if gpu_monitor_thread.is_alive():
-        print("GPU monitoring thread did not finish within the timeout. Terminating the thread.")
-        gpu_monitor_thread._stop()
-        sys.exit()
