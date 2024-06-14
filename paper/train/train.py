@@ -28,7 +28,7 @@ batch_size = 1         # this should be 1 to match synthseg
 learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
 n_classes = 2          # unclear 
-num_samples = 1      # number of samples to generate per epoch
+num_samples = 1000     # number of samples to use for trainng job. Synthseg uses 300k
 num_generators = 1     # unclear
 dtype = torch.bfloat16  
 
