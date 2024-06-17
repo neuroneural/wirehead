@@ -4,7 +4,6 @@ import shutil
 import sys
 import csv
 import time
-import subprocess
 import threading
 
 import wandb
@@ -21,8 +20,8 @@ from utils.generator import SynthsegDataset
 
 ### Userland ###
 use_wandb = True 
-wandb_project = "wirehead_1x3090_baseline"
-# wandb_project = "wirehead_1x3090_wirehead"
+# wandb_project = "wirehead_1x3090_baseline"
+wandb_project = "wirehead_1x3090_wirehead"
 
 
 # Hyperparameters
@@ -42,7 +41,7 @@ timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 log_dir = f"./log/{timestamp}"
 os.makedirs(log_dir, exist_ok=True)
 model_path          = os.path.join(log_dir, "unet_model.pth")
-train_script_path   = os.path.join(log_dir, "train.py")
+train_script_path   = os.path.join(log_dir, "wirehead_train.py")
 output_path         = os.path.join(log_dir, "output.txt")
 gpu_csv_path        = os.path.join(log_dir, "gpu.csv")
 sys.stdout = Logger(output_path)
@@ -56,7 +55,7 @@ with open(csv_path, 'w', newline='') as file:
 # Declare wandb runtime
 if use_wandb: 
     stop_event = threading.Event()
-    wandb_run = wandb.init(project="wirehead_1x3090", name=timestamp)       
+    wandb_run = wandb.init(project=wandb_project, name=timestamp)       
     # Create a separate thread for GPU monitoring
     gpu_monitor_thread = threading.Thread(
         target=gpu_monitor, args=(wandb_run, gpu_csv_path, 0.1, stop_event))
@@ -112,7 +111,7 @@ for epoch in range(num_epochs):
 
 # Save to logdir
 torch.save(model.state_dict(), model_path)
-shutil.copy("train.py", train_script_path)
+shutil.copy("wirehead_train.py", train_script_path)
 # Signal the GPU monitoring thread to stop
 stop_event.set()
 gpu_monitor_thread.join()
