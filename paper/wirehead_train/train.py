@@ -16,13 +16,10 @@ from torch.utils.data import DataLoader
 from utils.model import UNet
 from utils.dice import DiceLoss
 from utils.logging import Logger, gpu_monitor 
-from utils.misc import RandomDataset
-from utils.generator import SynthsegDataset
-
 from wirehead import MongoTupleheadDataset
 
 ### Userland ###
-use_wandb = False
+use_wandb = True
 # wandb_project = "wirehead_1x3090_baseline"
 wandb_project = "wirehead_1x3090_wirehead"
 
@@ -32,9 +29,9 @@ batch_size = 1         # this should be 1 to match synthseg
 learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
 n_classes = 2          # unclear 
-num_samples = 20
-num_epochs = 50        # 50 * 20 = 1000
-assert num_samples*num_epochs == 1000, "total samples read should be 1000"
+num_samples = 10
+num_epochs = 1       # 100*10 = 1000
+assert num_samples*num_epochs <= 1000, "total samples read should be 1000"
 num_generators = 1     # unclear
 dtype = torch.bfloat16  
 
@@ -112,13 +109,14 @@ for epoch in range(num_epochs):
                        "epoch": epoch, 
                        "samples_read": samples_read})
         # Print progress
-        if (batch_idx[0] + 1) % 10 == 0: 
-            print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
+        if (batch_idx[0] + 1) % 1 == 0: 
+            print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx[0]+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
 
 # Save to logdir
 torch.save(model.state_dict(), model_path)
 shutil.copy("train.py", train_script_path)
 # Signal the GPU monitoring thread to stop
-stop_event.set()
-gpu_monitor_thread.join()
+if use_wandb:
+    stop_event.set()
+    gpu_monitor_thread.join()
 print(f"Model weights, train.py script and output saved in: {log_dir}")
