@@ -1,4 +1,4 @@
-MONGOHOST: "localhost"
+MONGOHOST: "arctrdcn018.rs.gsu.edu"
 DBNAME: "wirehead_benchmark"
 SWAP_CAP: 10
 
