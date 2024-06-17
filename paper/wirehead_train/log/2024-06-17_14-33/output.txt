@@ -1,0 +1,17 @@
+Dataset: config loaded from config.yaml
+Epoch [1/100], Batch [1/10], Loss: 1.3485
+Epoch [1/100], Batch [2/10], Loss: 1.3550
+Epoch [1/100], Batch [3/10], Loss: 1.4314
+Epoch [1/100], Batch [4/10], Loss: 1.2820
+Epoch [1/100], Batch [5/10], Loss: 1.2486
+Epoch [1/100], Batch [6/10], Loss: 1.2194
+Epoch [1/100], Batch [7/10], Loss: 1.2037
+Epoch [1/100], Batch [8/10], Loss: 1.2040
+Epoch [1/100], Batch [9/10], Loss: 1.1754
+Epoch [1/100], Batch [10/10], Loss: 1.3306
+Epoch [2/100], Batch [1/10], Loss: 1.3245
+Epoch [2/100], Batch [2/10], Loss: 1.2080
+Epoch [2/100], Batch [3/10], Loss: 1.3601
+Epoch [2/100], Batch [4/10], Loss: 1.1841
+Epoch [2/100], Batch [5/10], Loss: 1.1533
+Epoch [2/100], Batch [6/10], Loss: 1.1483

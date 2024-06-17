@@ -16,10 +16,13 @@ from torch.utils.data import DataLoader
 from utils.model import UNet
 from utils.dice import DiceLoss
 from utils.logging import Logger, gpu_monitor 
+from utils.misc import RandomDataset
+from utils.generator import SynthsegDataset
+
 from wirehead import MongoTupleheadDataset
 
 ### Userland ###
-use_wandb = True
+use_wandb = False
 # wandb_project = "wirehead_1x3090_baseline"
 wandb_project = "wirehead_1x3090_wirehead"
 
@@ -30,8 +33,8 @@ learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
 n_classes = 2          # unclear 
 num_samples = 10
-num_epochs = 1       # 100*10 = 1000
-assert num_samples*num_epochs <= 1000, "total samples read should be 1000"
+num_epochs = 100       # 100*10 = 1000
+assert num_samples*num_epochs == 1000, "total samples read should be 1000"
 num_generators = 1     # unclear
 dtype = torch.bfloat16  
 
@@ -116,7 +119,6 @@ for epoch in range(num_epochs):
 torch.save(model.state_dict(), model_path)
 shutil.copy("train.py", train_script_path)
 # Signal the GPU monitoring thread to stop
-if use_wandb:
-    stop_event.set()
-    gpu_monitor_thread.join()
+stop_event.set()
+gpu_monitor_thread.join()
 print(f"Model weights, train.py script and output saved in: {log_dir}")
