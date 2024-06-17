@@ -94,7 +94,7 @@ def create_generator(task_id = 0, training_seg=None):
     brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
     print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
     # 2. Run your generator in a loop, and pass in your preprocessing options
-    for i in range(1000):
+    for i in range(100):
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
         print(f"Generator: Unique sample {i}")
         # 3. Yield your data, which will automatically be pushed to mongo
