@@ -255,23 +255,33 @@ class MongoTupleheadDataset(Dataset):
         self.collection = db[read_collection]
         self.sample = tuple(config.get("SAMPLE"))
 
-    def wait_for_data(self, db):
+    def wait_for_data(self, db, timeout = 5):
         """
         Prevents data object from reading before data is ready
         """
         status_collection = db["status"]
         latest_status = status_collection.find_one(sort=[("_id", -1)])
+        curr = 0
         while latest_status is None:
             latest_status = status_collection.find_one(sort=[("_id", -1)])
             print("Dataset: Database does not exist, hanging")
-            time.sleep(5)
+            time.sleep(60)
+            curr += 1
+            if curr == timeout:
+                print("Waited too long, exiting")
+                return
 
         swapped = latest_status.get("swapped")
+        curr = 0
         while swapped is False:
             latest_status = status_collection.find_one(sort=[("_id", -1)])
             swapped = latest_status.get("swapped")
             print("Dataset: Swap has not happened, hanging")
-            time.sleep(5)
+            time.sleep(60)
+            curr += 1
+            if curr == timeout:
+                print("Waited too long, exiting")
+                return
 
     def get_indeces(self):
         """
