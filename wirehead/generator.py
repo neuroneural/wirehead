@@ -15,12 +15,13 @@ class WireheadGenerator():
     and manager runtimes.
     """
 
-    def __init__(self, generator, config_path):
+    def __init__(self, generator, config_path, n_samples = 1000):
         if config_path is None or os.path.exists(config_path) is False:
             print("No valid config specified, exiting")
             return
         self.load_from_yaml(config_path)
         self.generator = generator
+        self.n_samples = n_samples
 
     def load_from_yaml(self, config_path):
         """ Loads manager configs from config_path """
@@ -121,5 +122,6 @@ class WireheadGenerator():
         """ Initializes and runs a SynthSeg brain generator in a loop,
             preprocesses, then pushes to mongoDB"""
         print("Generator: Initialized")
-        while True:
+        n_samples = self.n_samples
+        for _ in range(n_samples):
             self.generate_and_insert()
