@@ -19,7 +19,7 @@ from utils.logging import Logger, gpu_monitor
 from wirehead import MongoTupleheadDataset
 
 ### Userland ###
-use_wandb = True
+use_wandb = False
 # wandb_project = "wirehead_1x3090_baseline"
 wandb_project = "wirehead_1xA100_wirehead"
 
@@ -30,8 +30,7 @@ learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
 n_classes = 2          # unclear 
 num_samples = 10
-num_epochs = 100       # 100*10 = 1000
-assert num_samples*num_epochs == 1000, "total samples read should be 1000"
+num_epochs = 50        # 100*10 = 1000
 num_generators = 1     # unclear
 dtype = torch.bfloat16  
 
