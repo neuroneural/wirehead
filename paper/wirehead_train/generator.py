@@ -10,6 +10,8 @@ PATH_TO_DATA        = "./SynthSeg/data/training_label_maps/"
 DATA_FILES          = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
 PATH_TO_SYNTHSEG    = './SynthSeg'
 
+N_SAMPLES = 1000
+
 LABEL_MAP = np.asarray(
     [0, 0, 1, 2, 3, 4, 0, 5, 6, 0, 7, 8, 9, 10]
     + [11, 12, 13, 14, 15]
@@ -94,7 +96,7 @@ def create_generator(task_id = 0, training_seg=None):
     brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
     print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
     # 2. Run your generator in a loop, and pass in your preprocessing options
-    for i in range(100):
+    for i in range(N_SAMPLES):
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
         print(f"Generator: Unique sample {i}")
         # 3. Yield your data, which will automatically be pushed to mongo
@@ -102,5 +104,6 @@ def create_generator(task_id = 0, training_seg=None):
 
 if __name__ == "__main__":
     brain_generator    = create_generator()
-    wirehead_generator = WireheadGenerator(generator = brain_generator, config_path = WIREHEAD_CONFIG)
+    wirehead_generator = WireheadGenerator(generator = brain_generator, config_path = WIREHEAD_CONFIG, n_samples = N_SAMPLES)
     wirehead_generator.run_generator()
+    print("Generator: finished running")
