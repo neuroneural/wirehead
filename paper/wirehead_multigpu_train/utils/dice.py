@@ -1,8 +1,8 @@
+# from https://github.com/neuroneural/catalyst_example/blob/main/dice.py
 # Inspired by
 # https://github.com/BBillot/SynthSeg/blob/492453421020d66ebf0e11bf0cc266754d21b895/SynthSeg/evaluate.py
 import numpy as np
 import torch
-
 
 def faster_dice(x, y, labels, fudge_factor=1e-8):
     """Faster PyTorch implementation of Dice scores.

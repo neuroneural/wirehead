@@ -1,0 +1,13 @@
+{
+  "logdir": "./log/2024-06-19_11-56",
+  "topk": 1,
+  "loader_key": null,
+  "metric_key": "macro_dice",
+  "minimize": false,
+  "storage": [
+    {
+      "logpath": "./log/2024-06-19_11-56/model.0010.pth",
+      "metric": 10
+    }
+  ]
+}
