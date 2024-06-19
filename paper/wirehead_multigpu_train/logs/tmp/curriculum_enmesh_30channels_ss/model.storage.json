@@ -1,0 +1,13 @@
+{
+  "logdir": "./logs/tmp/curriculum_enmesh_30channels_ss/",
+  "topk": 1,
+  "loader_key": null,
+  "metric_key": "macro_dice",
+  "minimize": false,
+  "storage": [
+    {
+      "logpath": "./logs/tmp/curriculum_enmesh_30channels_ss//model.0010.pth",
+      "metric": 10
+    }
+  ]
+}
