@@ -1,4 +1,4 @@
-MONGOHOST: "localhost"
+MONGOHOST: "arctrdcn018"
 DBNAME: "wirehead_benchmark"
 SWAP_CAP: 10
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Declare project name
-PROJECT_NAME="wirehead_multigpu_dev"
+PROJECT_NAME="wirehead_1xA100_wirehead"
 
 # Generate experiment ID
 EXPERIMENT_ID=$(date +"%Y-%m-%d_%H-%M")
@@ -22,4 +22,5 @@ python clean.py
 python manager.py &
 python generator.py "$PROJECT_NAME" "$EXPERIMENT_ID" &
 python multigpu_train.py "$PROJECT_NAME" "$EXPERIMENT_ID"
+wait
 kill -SIGINT $$

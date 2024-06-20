@@ -10,7 +10,7 @@ import csv
 from datetime import datetime
 
 # Synthseg config
-WIREHEAD_CONFIG     = "config.yaml"
+WIREHEAD_CONFIG     = "./conf/wirehead_config.yaml"
 PATH_TO_DATA        = "./SynthSeg/data/training_label_maps/"
 DATA_FILES          = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
 PATH_TO_SYNTHSEG    = './SynthSeg'
