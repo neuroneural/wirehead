@@ -60,7 +60,9 @@ MAXSHAPE = 300
 n_classes = 18
 DTYPE = torch.bfloat16  
 QUANTIZE = False # quantize model and paramters
-MODEL = "mesh"
+MODEL = "unet"
+if MODEL == "unet":
+    QUANTIZE = True
 
 # Load params
 model_path = ""
@@ -203,12 +205,10 @@ class CustomRunner(dl.Runner):
         return {"train": tdataloader}
 
     def get_model(self):
-        if MODEL == "UNet":
-            n_channels = 1
-            n_classes = 2
+        if MODEL == "unet":
             model = UNet(
-                n_channels=n_channels,
-                n_classes=n_classes).to(DTYPE)
+                n_channels=self.n_channels,
+                n_classes=self.n_classes).to(DTYPE)
         else: # use meshnet for memory efficiency
             if self.shape > MAXSHAPE:
                 model = enMesh(
@@ -228,18 +228,19 @@ class CustomRunner(dl.Runner):
         return model
 
     def get_criterion(self):
-        class_weight = torch.FloatTensor(
-            [self.off_brain_weight] + [1.0] * (self.n_classes - 1)
-        ).to(self.engine.device)
-        ce_criterion = torch.nn.CrossEntropyLoss(
-            weight=class_weight, label_smoothing=0.01
-        )
+        # class_weight = torch.FloatTensor(
+        #     [self.off_brain_weight] + [1.0] * (self.n_classes - 1)
+        # ).to(self.engine.device)
+        # ce_criterion = torch.nn.CrossEntropyLoss(
+        #     weight=class_weight, label_smoothing=0.01
+        # )
         dice_criterion = DiceLoss()
 
         def combined_loss(output, target):
-            ce_loss = ce_criterion(output, target)
+            #ce_loss = ce_criterion(output, target)
             dice_loss = dice_criterion(output, target)
-            return 0.7 * ce_loss + 0.3 * dice_loss
+            # return 0.7 * ce_loss + 0.3 * dice_loss
+            return dice_loss
 
         return combined_loss
 
@@ -376,7 +377,7 @@ if __name__ == "__main__":
     validation_percent = 0.1
     optimize_inline = False
 
-    model_channels = 30
+    model_channels = 1
     model_label = "_ss"
 
     client_creator = ClientCreator(DBNAME, MONGOHOST)
@@ -387,7 +388,7 @@ if __name__ == "__main__":
     numvolumes = [1] + [1, 1] * 10
     weights = [0.5] + [1] * 20  # weights for the 0-class
     collections = ["read"] * 21
-    epochs = [1] + [1, 1] * 10
+    epochs = [10] + [10, 10] * 10
     prefetches = [24] * 21
     attenuates = [1] * 21
 
