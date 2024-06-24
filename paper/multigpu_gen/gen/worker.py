@@ -13,6 +13,8 @@ PATH_TO_DATA        = ("./gen/SynthSeg/data/training_label_maps/")
 DATA_FILES          = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
 PATH_TO_SYNTHSEG    = './gen/SynthSeg/'
 
+N_SAMPLES = 1000
+
 LABEL_MAP = np.asarray(
     [0, 0, 1, 2, 3, 4, 0, 5, 6, 0, 7, 8, 9, 10]
     + [11, 12, 13, 14, 15]
@@ -156,5 +158,6 @@ if __name__ == "__main__":
         brain_generator = create_generator(my_task_id(), experiment_id)
         wirehead_generator = WireheadGenerator(
             generator = brain_generator,
-            config_path = WIREHEAD_CONFIG)
+            config_path = WIREHEAD_CONFIG,
+            n_samples = N_SAMPLES)
         wirehead_generator.run_generator()
