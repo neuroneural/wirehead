@@ -45,8 +45,6 @@ trap terminate_child_processes SIGINT
 
 # Run Python scripts with project name and experiment ID as arguments
 python clean.py # remember that clean happens here btw
-python manager.py &
-python generator.py &
 python train.py --experiment_name "$EXPERIMENT_ID"
 
 wait

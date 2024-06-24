@@ -1,8 +1,14 @@
 #!/bin/bash
 
-PROJECT_NAME="wirehead_1xA100_wirehead"
-EXPERIMENT_ID=$(date +"%Y-%m-%d%H-%M")
+PROJECT_NAME="wirehead_dev"
+EXPERIMENT_ID=$(date +"%Y-%m-%d_%H-%M")
 
+export PROJECT_NAME=$PROJECT_NAME
+export EXPERIMENT_ID=$EXPERIMENT_ID
 
 # Run the training script with these hardware configs
-srun -p qTRDGPUH -A psy53c17 -v -t600 -N1-1 -c16 --gres=gpu:A100:1 --mem=200g --pty test.sh --project_name wirehead_dev --experiment_id hi
+srun -p qTRDGPUH -A psy53c17 -v -t600 -N1-1 -c16 --gres=gpu:A100:1 --mem=200g --pty \
+  train_for_distributed.sh --project_name $PROJECT_NAME --experiment_id $EXPERIMENT_ID
+
+# Run the generator and manager with the same configs
+sbatch --export=ALL gen/deploy_workers.sh
