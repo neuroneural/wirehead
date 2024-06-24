@@ -21,6 +21,6 @@ trap terminate_child_processes SIGINT
 python clean.py
 python manager.py &
 python generator.py "$PROJECT_NAME" "$EXPERIMENT_ID" &
-python multigpu_train.py "$PROJECT_NAME" "$EXPERIMENT_ID"
+python train0.py --experiment_name "$EXPERIMENT_ID"
 wait
 kill -SIGINT $$

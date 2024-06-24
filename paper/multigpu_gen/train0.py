@@ -35,7 +35,6 @@ num_samples = 10
 num_epochs = 100       # 100*10 = 1000
 num_generators = 1     # unclear
 dtype = torch.float32
-
 ### outside ###
 
 # Logging constants
@@ -83,7 +82,8 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 # dataset = RandomDataset(num_samples=num_samples) # for debugging 
 dataset = MongoTupleheadDataset(config_path = WIREHEAD_CONFIG)
 dataloader = DataLoader(dataset,
-                        batch_size=batch_size, 
+                        batch_size=batch_size,
+                        prefetch_factor = 10,
                         num_workers=num_generators, pin_memory=True)
 
 samples_read = 0

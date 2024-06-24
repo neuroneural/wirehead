@@ -10,7 +10,7 @@ import threading
 import csv
 from datetime import datetime
 
-def gpu_monitor(csv_path, interval=0.1, stop_event=None):
+def gpu_monitor(wandb_run, csv_path, interval=0.1, stop_event=None):
     """
     Function to monitor GPU utilization and memory usage, log to wandb, and write to a CSV file.
     Runs in a separate thread with a specified polling interval.
@@ -31,6 +31,8 @@ def gpu_monitor(csv_path, interval=0.1, stop_event=None):
             gpu_util = float(gpu_info[0])
             gpu_mem = float(gpu_info[1])
 
+            # Log GPU utilization and memory usage to wandb
+            wandb_run.log({"gpu_util": gpu_util, "gpu_mem": gpu_mem})
 
             # Write GPU utilization and memory usage to the CSV file
             with open(csv_path, 'a', newline='') as file:

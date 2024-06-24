@@ -1,0 +1,6 @@
+This is a Synthseg generation job running on node arctrdagn031
+Generator: Initialized
+Compiling list of unique labels
+processing 1/1
+Generator: SynthSeg is generating off training_seg_02.nii.gz
+Logging to: ./log/1719249489/generator/worker1.log

@@ -3,19 +3,14 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from wirehead import WireheadManager, WireheadGenerator
-import wandb
-import time
-import os
-import csv
-from datetime import datetime
 
 # Synthseg config
 WIREHEAD_CONFIG     = "./conf/wirehead_config.yaml"
-PATH_TO_DATA        = "./SynthSeg/data/training_label_maps/"
+PATH_TO_DATA        = "./gen/SynthSeg/data/training_label_maps/"
 DATA_FILES          = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
-PATH_TO_SYNTHSEG    = './SynthSeg'
+PATH_TO_SYNTHSEG    = './gen/SynthSeg'
 
-N_SAMPLES = 100
+N_SAMPLES = 1000
 
 LABEL_MAP = np.asarray(
     [0, 0, 1, 2, 3, 4, 0, 5, 6, 0, 7, 8, 9, 10]
@@ -85,60 +80,30 @@ def hardware_setup():
     sys.path.append(PATH_TO_SYNTHSEG)
     pass
 
-def create_generator(task_id = 0, training_seg=None, csv_writer=None):
+# Create a generator function that yields desired samples
+def create_generator(task_id = 0, training_seg=None):
     """ Creates an iterator that returns data for mongo.
         Should contain all the dependencies of the brain generator
         Preprocessing should be applied at this phase 
         yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
+
+    # 0. Optionally set up hardware configs
     hardware_setup()
+    # 1. Declare your generator and its dependencies here
     sys.path.append(PATH_TO_SYNTHSEG)
     from SynthSeg.brain_generator import BrainGenerator
     training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
     brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
-    print(f"Generator: SynthSeg is generating off {training_seg}", flush=True)
-    
-    start_time = time.time()
+    print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
+    # 2. Run your generator in a loop, and pass in your preprocessing options
     for i in range(N_SAMPLES):
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
         print(f"Generator: Unique sample {i}")
-        
-        # Log progress to wandb and CSV
-        elapsed_time = time.time() - start_time
-        samples_generated = i + 1
-        samples_per_second = samples_generated / elapsed_time
-        
-        wandb.log({
-            "samples_generated": samples_generated,
-            "elapsed_time": elapsed_time,
-            "samples_per_second": samples_per_second
-        })
-        
-        if csv_writer:
-            csv_writer.writerow([samples_generated, elapsed_time, samples_per_second])
-        
+        # 3. Yield your data, which will automatically be pushed to mongo
         yield (img, lab)
 
 if __name__ == "__main__":
-    # Create timestamp and log directory
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_dir = f"./log/{timestamp}"
-    os.makedirs(log_dir, exist_ok=True)
-    
-    # Open CSV file for writing
-    csv_path = os.path.join(log_dir, "generator.csv")
-    csv_file = open(csv_path, 'w', newline='')
-    csv_writer = csv.writer(csv_file)
-    csv_writer.writerow(['samples_generated', 'elapsed_time', 'samples_per_second'])  # Write header
-    
-    # Initialize wandb
-    wandb.init(project=sys.argv[1], name=sys.argv[2], config={"N_SAMPLES": N_SAMPLES})
-    
-    brain_generator = create_generator(csv_writer=csv_writer)
-    wirehead_generator = WireheadGenerator(generator=brain_generator, config_path=WIREHEAD_CONFIG, n_samples=N_SAMPLES)
+    brain_generator    = create_generator()
+    wirehead_generator = WireheadGenerator(generator = brain_generator, config_path = WIREHEAD_CONFIG, n_samples = N_SAMPLES)
     wirehead_generator.run_generator()
-    
-    # Close CSV file
-    csv_file.close()
-    # Close wandb run
-    wandb.finish()
     print("Generator: finished running")
