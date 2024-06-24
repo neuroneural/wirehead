@@ -1,6 +1,10 @@
 import os
 import sys
 import numpy as np
+import csv
+import time
+from datetime import datetime
+import argparse
 from wirehead import WireheadManager, WireheadGenerator
 
 # Synthseg config
@@ -25,9 +29,8 @@ LABEL_MAP = np.asarray(
     dtype="int",
 ).astype(np.uint8)
 
-def merge_homologs(label):#, device):
+def merge_homologs(label):
     max_value = 31
-    # idx = torch.arange(max_value + 1, dtype=torch.long).to(device)
     idx = np.arange(max_value+1)
     idx[31] = 17
     idx[30] = 16
@@ -43,7 +46,6 @@ def merge_homologs(label):#, device):
     idx[20] = 3
     idx[19] = 2
     idx[18] = 1
-    # return the corresponding values from idx
     return idx[label]
 
 def preprocess_label(lab, label_map=LABEL_MAP):
@@ -77,12 +79,30 @@ def hardware_setup():
     sys.path.append(PATH_TO_SYNTHSEG)
     pass
 
-# Create a generator function that yields desired samples
-def create_generator(task_id, training_seg=None):
+def create_log_file(task_id, experiment_name):
+    """Create a unique log file for this worker in a structured directory"""
+    log_dir = f"./log/{experiment_name}/generator"
+    os.makedirs(log_dir, exist_ok=True)
+    filename = f"{log_dir}/worker{task_id}.log"
+    return filename
+
+def log_timing(log_file, timestamp, task_id):
+    """Log the timestamp of a push to the worker's log file"""
+    try:
+        with open(log_file, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([timestamp, task_id])
+    except IOError as e:
+        print(f"Error writing to log file: {e}", file=sys.stderr)
+
+def create_generator(task_id, experiment_name, training_seg=None):
     """ Creates an iterator that returns data for mongo.
         Should contain all the dependencies of the brain generator
         Preprocessing should be applied at this phase 
         yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
+
+    # Create a unique log file for this generator
+    log_file = create_log_file(task_id, experiment_name)
 
     # 0. Optionally set up hardware configs
     hardware_setup()
@@ -91,10 +111,17 @@ def create_generator(task_id, training_seg=None):
     from SynthSeg.brain_generator import BrainGenerator
     training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
     brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
-    print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
+    print(f"Generator: SynthSeg is generating off {training_seg}", flush=True)
+    print(f"Logging to: {log_file}", flush=True)
+
     # 2. Run your generator in a loop, and pass in your preprocessing options
     while True:
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
+        
+        # Log the timing before yielding
+        timestamp = time.time()
+        log_timing(log_file, timestamp, task_id)
+        
         # 3. Yield your data, which will automatically be pushed to mongo
         yield (img, lab)
 
@@ -111,11 +138,22 @@ def is_first_job():
     return my_task_id() == 0
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run SynthSeg generator with custom experiment name.')
+    parser.add_argument('--experiment_name', type=str, help='Name of the experiment (optional)')
+    args = parser.parse_args()
+
+    if args.experiment_name:
+        experiment_name = args.experiment_name
+    else:
+        experiment_name = datetime.now().strftime("%Y-%m-%d_%H-%M")
+
+    print(f"Experiment name: {experiment_name}")
+
     if is_first_job() and WIREHEAD_CONFIG != "":
         wirehead_manager = WireheadManager(config_path = WIREHEAD_CONFIG)
         wirehead_manager.run_manager()
     else:
-        brain_generator    = create_generator(my_task_id())
+        brain_generator = create_generator(my_task_id(), experiment_name)
         wirehead_generator = WireheadGenerator(
             generator = brain_generator,
             config_path = WIREHEAD_CONFIG)
