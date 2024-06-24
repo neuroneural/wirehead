@@ -19,8 +19,7 @@ from utils.logging import Logger, gpu_monitor
 from wirehead import MongoTupleheadDataset
 
 ### Userland ###
-use_wandb = False
-# wandb_project = "wirehead_1x3090_baseline"
+use_wandb = True
 wandb_project = "wirehead_1xA100_wirehead"
 
 
@@ -30,9 +29,9 @@ learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
 n_classes = 2          # unclear 
 num_samples = 10
-num_epochs = 50        # 100*10 = 1000
+num_epochs = 100      # 100*10 = 1000
 num_generators = 1     # unclear
-dtype = torch.bfloat16  
+dtype = torch.float32
 
 ### outside ###
 
@@ -72,7 +71,8 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 # dataset = RandomDataset(num_samples=num_samples) # for debugging 
 dataset = MongoTupleheadDataset(config_path = "config.yaml")
 dataloader = DataLoader(dataset,
-                        batch_size=batch_size, 
+                        batch_size=batch_size,
+                        prefetch_factor = 10,
                         num_workers=num_generators, pin_memory=True)
 
 samples_read = 0

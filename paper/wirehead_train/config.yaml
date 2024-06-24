@@ -1,5 +1,5 @@
-MONGOHOST: "localhost"
-DBNAME: "wirehead_benchmark"
+MONGOHOST: "arctrdcn018.rs.gsu.edu"
+DBNAME: "wirehead_benchmark_wirehead_train"
 SWAP_CAP: 10
 
 # Change if you know what you're doing
