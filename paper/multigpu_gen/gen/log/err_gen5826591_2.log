@@ -1,0 +1,7 @@
+Error output test
+Traceback (most recent call last):
+  File "/data/users1/mdoan4/wirehead/paper/multigpu_gen/gen/worker.py", line 120, in <module>
+    wirehead_generator.run_generator()
+  File "/data/users1/mdoan4/wirehead/wirehead/generator.py", line 125, in run_generator
+    n_samples = self.n_samples
+AttributeError: 'WireheadGenerator' object has no attribute 'n_samples'
