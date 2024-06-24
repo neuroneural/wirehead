@@ -139,21 +139,21 @@ def is_first_job():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run SynthSeg generator with custom experiment name.')
-    parser.add_argument('--experiment_name', type=str, help='Name of the experiment (optional)')
+    parser.add_argument('--experiment_id', type=str, help='Name of the experiment (optional)')
     args = parser.parse_args()
 
-    if args.experiment_name:
-        experiment_name = args.experiment_name
+    if args.experiment_id :
+        experiment_id = args.experiment_id
     else:
-        experiment_name = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        experiment_id= datetime.now().strftime("%Y-%m-%d_%H-%M")
 
-    print(f"Experiment name: {experiment_name}")
+    print(f"Experiment name: {experiment_id}")
 
     if is_first_job() and WIREHEAD_CONFIG != "":
         wirehead_manager = WireheadManager(config_path = WIREHEAD_CONFIG)
         wirehead_manager.run_manager()
     else:
-        brain_generator = create_generator(my_task_id(), experiment_name)
+        brain_generator = create_generator(my_task_id(), experiment_id)
         wirehead_generator = WireheadGenerator(
             generator = brain_generator,
             config_path = WIREHEAD_CONFIG)
