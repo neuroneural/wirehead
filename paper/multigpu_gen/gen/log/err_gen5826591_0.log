@@ -1,7 +1,0 @@
-Error output test
-Traceback (most recent call last):
-  File "/data/users1/mdoan4/wirehead/paper/multigpu_gen/gen/worker.py", line 116, in <module>
-    wirehead_manager.run_manager()
-  File "/data/users1/mdoan4/wirehead/wirehead/manager.py", line 46, in run_manager
-    self.db["status"].insert_one({"swapped": False})
-AttributeError: 'WireheadManager' object has no attribute 'db'
