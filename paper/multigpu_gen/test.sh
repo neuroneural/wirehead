@@ -1,12 +1,38 @@
 #!/bin/bash
 
-# Declare project name
-PROJECT_NAME="wirehead_1xA100_wirehead"
+# Function to display usage
+usage() {
+    echo "Usage: $0 --project_name <project_name> --experiment_id <experiment_id>"
+    exit 1
+}
 
-# Generate experiment ID
-EXPERIMENT_ID=$(date +"%Y-%m-%d_%H-%M")
+# Initialize variables
+PROJECT_NAME=""
+EXPERIMENT_ID=""
 
-echo Running experiment $PROJECT_NAME/$EXPERIMENT_ID
+# Parse command-line arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --project_name)
+            PROJECT_NAME="$2"
+            shift 2
+            ;;
+        --experiment_id)
+            EXPERIMENT_ID="$2"
+            shift 2
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+# Check if both arguments are provided
+if [ -z "$PROJECT_NAME" ] || [ -z "$EXPERIMENT_ID" ]; then
+    usage
+fi
+
+echo "Running experiment $PROJECT_NAME/$EXPERIMENT_ID"
 
 # Function to terminate child processes
 terminate_child_processes() {
@@ -22,5 +48,6 @@ python clean.py
 python manager.py &
 python generator.py "$PROJECT_NAME" "$EXPERIMENT_ID" &
 python train0.py --experiment_name "$EXPERIMENT_ID"
+
 wait
 kill -SIGINT $$
