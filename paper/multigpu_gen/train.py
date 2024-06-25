@@ -15,24 +15,23 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from utils.model import UNet
-from utils.dice import DiceLoss
+from utils.dice import faster_dice, DiceLoss
 from utils.logging import Logger, gpu_monitor 
+from utils.fetch import get_eval
 from wirehead import MongoTupleheadDataset
 
 ### Userland ###
 use_wandb = True 
-wandb_project = "wirehead_benchmark_debug"
-# wandb_project = "wirehead_1xA100_wirehead"
+wandb_project = "wirehead_1xA100_wirehead_mutligpugen"
 WIREHEAD_CONFIG = "./conf/wirehead_config.yaml"
-
 
 # Hyperparameters
 batch_size = 1         # this should be 1 to match synthseg
 learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
-n_classes = 2          # unclear 
-num_samples = 10
-num_epochs = 100       # 100*10 = 1000
+n_classes = 18          # unclear 
+num_samples = 100
+num_epochs = 1000      # 100*10 = 1000
 num_generators = 1     # unclear
 dtype = torch.float32
 ### outside ###
@@ -86,6 +85,10 @@ dataloader = DataLoader(dataset,
                         prefetch_factor = 10,
                         num_workers=num_generators, pin_memory=True)
 
+# Get some real brains from HCPnew to eval
+eval_set = get_eval(10)
+print(f"Training: Got {len(eval_set)} samples for testing")
+
 samples_read = 0
 # Training loop
 for epoch in range(num_epochs):
@@ -103,9 +106,6 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
 
-        del inputs
-        del labels
-
         # Update samples read
         samples_read += batch_size
         current_time = time.time()
@@ -114,13 +114,44 @@ for epoch in range(num_epochs):
             writer = csv.writer(file)
             writer.writerow([current_time, dice, epoch, samples_read])
         if use_wandb:
+            result = torch.squeeze(torch.argmax(outputs, 1)).long()
+            labels = torch.squeeze(labels)
+            real_dice = torch.mean(
+                faster_dice(result, labels, range(n_classes))
+            ) # use real dice instead of dice loss
             wandb.log({"time": current_time, 
-                       "dice": dice, 
+                       "dice": real_dice, 
                        "epoch": epoch, 
                        "samples_read": samples_read})
+            del result
+            del labels
+        del inputs
         # Print progress
         if (batch_idx[0] + 1) % 1 == 0: 
             print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx[0]+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
+    # Eval on real data
+    with torch.inference_mode():
+        eval_dices = []
+        for img, lab in eval_set:
+            img = img.cuda()
+            out = model(img)
+            out = torch.squeeze(torch.argmax(out, 1)).long()
+            lab = torch.squeeze(lab)
+            eval_dice = torch.mean(
+                faster_dice(out, lab, range(n_classes))
+            )
+            eval_dices.append(eval_dice)
+            del img
+            del out
+            del lab
+
+        wandb.log({"eval_dice": sum(eval_dices)/len(eval_dices)})
+        print(f"Eval: Average dice: {sum(eval_dices)/len(eval_dices)}")
+
+        del img
+        del lab
+        del out
+        del eval_dices
 
 # Save to logdir
 torch.save(model.state_dict(), model_path)

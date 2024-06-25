@@ -1,6 +1,6 @@
 MONGOHOST: "arctrdcn018"
 DBNAME: "wirehead_benchmark_multigpu_gen"
-SWAP_CAP: 10
+SWAP_CAP: 100
 
 # Change if you know what you're doing
 SAMPLE: ["data", "label"]

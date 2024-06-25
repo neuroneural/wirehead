@@ -6,7 +6,7 @@
 #SBATCH --gres=gpu:A40:1
 #SBATCH --output=./gen/log/out_gen%A_%a.log
 #SBATCH --error=./gen/log/err_gen%A_%a.log
-#SBATCH --time=06:00:00
+#SBATCH --time=10:00:00
 #SBATCH -p qTRDGPU
 #SBATCH -A psy53c17
 #SBATCH --array=0-10

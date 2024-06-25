@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader
 from utils.model import UNet
 from utils.dice import faster_dice, DiceLoss
 from utils.logging import Logger, gpu_monitor 
+from utils.fetch import get_eval
 from wirehead import MongoTupleheadDataset
 
 ### Userland ###
@@ -85,6 +86,11 @@ dataloader = DataLoader(dataset,
                         prefetch_factor = 10,
                         num_workers=num_generators, pin_memory=True)
 
+
+# Get some real brains from HCPnew to eval
+eval_set = get_eval(10)
+print(f"Training: Got {len(eval_set)} samples for testing")
+
 samples_read = 0
 # Training loop
 for epoch in range(num_epochs):
@@ -122,6 +128,22 @@ for epoch in range(num_epochs):
         # Print progress
         if (batch_idx[0] + 1) % 1 == 0: 
             print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx[0]+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
+    # Test on real data every epoch
+    with torch.inference_mode():
+        eval_dices = []
+        for img, lab in eval_set:
+            img = img.cuda()
+            out = model(img)
+            out = torch.squeeze(torch.argmax(out, 1)).long()
+            lab = torch.squeeze(lab)
+            eval_dice = torch.mean(
+                faster_dice(out, lab, range(n_classes))
+            )
+            eval_dices.append(eval_dice)
+
+        wandb.log({"eval_dice": sum(eval_dices)/len(eval_dices)})
+        print(f"Eval: Average dice: {sum(eval_dices)/len(eval_dices)}")
+
 
 # Save to logdir
 torch.save(model.state_dict(), model_path)
