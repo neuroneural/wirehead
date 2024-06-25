@@ -5,6 +5,7 @@ import sys
 import csv
 import time
 import subprocess
+import argparse
 import threading
 
 import wandb
@@ -14,25 +15,25 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from utils.model import UNet
-from utils.dice import DiceLoss
+from utils.dice import faster_dice, DiceLoss
 from utils.logging import Logger, gpu_monitor 
 from wirehead import MongoTupleheadDataset
 
 ### Userland ###
-use_wandb = True
+use_wandb = True 
 wandb_project = "wirehead_1xA100_wirehead"
+WIREHEAD_CONFIG = "./config.yaml"
 
 
 # Hyperparameters
 batch_size = 1         # this should be 1 to match synthseg
 learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
-n_classes = 2          # unclear 
+n_classes = 18          # unclear 
 num_samples = 10
-num_epochs = 100      # 100*10 = 1000
+num_epochs = 1000      # 100*10 = 1000
 num_generators = 1     # unclear
 dtype = torch.float32
-
 ### outside ###
 
 # Logging constants
@@ -53,8 +54,17 @@ with open(csv_path, 'w', newline='') as file:
 
 # Declare wandb runtime
 if use_wandb: 
+    parser = argparse.ArgumentParser(description='Run training script with name.')
+    parser.add_argument('--experiment_name', type=str, help='Name of the experiment (optional)')
+    args = parser.parse_args()
+
+    if args.experiment_name:
+        experiment_name = args.experiment_name
+    else:
+        experiment_name = timestamp
+    print(f"Experiment name: {experiment_name}")
     stop_event = threading.Event()
-    wandb_run = wandb.init(project=wandb_project, name=timestamp)       
+    wandb_run = wandb.init(project=wandb_project, name=experiment_name)       
     # Create a separate thread for GPU monitoring
     gpu_monitor_thread = threading.Thread(
         target=gpu_monitor, args=(wandb_run, gpu_csv_path, 0.1, stop_event))
@@ -69,7 +79,7 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 # Create the dataset and dataloader
 # dataset = SynthsegDataset(num_samples=num_samples)
 # dataset = RandomDataset(num_samples=num_samples) # for debugging 
-dataset = MongoTupleheadDataset(config_path = "config.yaml")
+dataset = MongoTupleheadDataset(config_path = WIREHEAD_CONFIG)
 dataloader = DataLoader(dataset,
                         batch_size=batch_size,
                         prefetch_factor = 10,
@@ -92,9 +102,6 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
 
-        del inputs
-        del labels
-
         # Update samples read
         samples_read += batch_size
         current_time = time.time()
@@ -103,8 +110,13 @@ for epoch in range(num_epochs):
             writer = csv.writer(file)
             writer.writerow([current_time, dice, epoch, samples_read])
         if use_wandb:
+            result = torch.squeeze(torch.argmax(outputs, 1)).long()
+            labels = torch.squeeze(labels)
+            real_dice = torch.mean(
+                faster_dice(result, labels, range(n_classes))
+            ) # use real dice instead of dice loss
             wandb.log({"time": current_time, 
-                       "dice": dice, 
+                       "dice": real_dice, 
                        "epoch": epoch, 
                        "samples_read": samples_read})
         # Print progress

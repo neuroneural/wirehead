@@ -10,7 +10,7 @@ PATH_TO_DATA        = "./SynthSeg/data/training_label_maps/"
 DATA_FILES          = [f"training_seg_{i:02d}.nii.gz" for i in range(1, 21)]
 PATH_TO_SYNTHSEG    = './SynthSeg'
 
-N_SAMPLES = 1000
+N_SAMPLES = 500
 
 LABEL_MAP = np.asarray(
     [0, 0, 1, 2, 3, 4, 0, 5, 6, 0, 7, 8, 9, 10]
