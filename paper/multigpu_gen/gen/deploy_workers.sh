@@ -9,7 +9,7 @@
 #SBATCH --time=06:00:00
 #SBATCH -p qTRDGPU
 #SBATCH -A psy53c17
-#SBATCH --array=0-2
+#SBATCH --array=0-10
 
 echo "This is a Synthseg generation job running on node $(hostname)"
 echo "Project Name: $PROJECT_NAME"
