@@ -30,7 +30,7 @@ batch_size = 1         # this should be 1 to match synthseg
 learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
 n_classes = 18          # unclear 
-num_samples = 10000
+num_samples = 100
 num_epochs = 1         # 100*10 = 1000
 num_generators = 1     # unclear
 dtype = torch.float32
@@ -85,7 +85,7 @@ dataloader = DataLoader(dataset,
                         num_workers=num_generators, pin_memory=True)
 
 # Get some real brains from HCPnew to eval
-eval_set = get_eval(10)
+eval_set = get_eval(1)
 
 print(f"Training: Got {len(eval_set)} samples for testing")
 
