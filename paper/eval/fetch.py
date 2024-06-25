@@ -66,6 +66,8 @@ def get_eval_dataloader():
     client = MongoClient("mongodb://" + MONGOHOST + ":27017")
     db = client[DBNAME]
     posts = db[COLLECTION + ".meta"]
+    col = db[COLLECTION]
+
 # compute how many unique INDEX_ID values are present in the collection
 # these are unique subjects
     num_examples = int(posts.find_one(sort=[(INDEX_ID, -1)])[INDEX_ID] + 1)
@@ -75,7 +77,7 @@ def get_eval_dataloader():
         mytransform,
         None,
         (DATAFIELD, LABELFIELD),
-        normalize=unit_interval_normalize,
+        normalize=lambda x: x,
         id=INDEX_ID,
     )
 
