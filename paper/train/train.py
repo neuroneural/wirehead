@@ -4,19 +4,18 @@ import shutil
 import sys
 import csv
 import time
-import subprocess
 import argparse
 import threading
 
 import wandb
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from utils.model import UNet
 from utils.dice import faster_dice, DiceLoss
 from utils.logging import Logger, gpu_monitor 
+from utils.generator import SynthsegDataset
 from wirehead import MongoTupleheadDataset
 
 ### Userland ###
@@ -77,23 +76,20 @@ model = UNet(n_channels=n_channels, n_classes=n_classes).to(device).to(dtype)
 criterion = DiceLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 # Create the dataset and dataloader
-# dataset = SynthsegDataset(num_samples=num_samples)
+dataset = SynthsegDataset(num_samples=num_samples)
 # dataset = RandomDataset(num_samples=num_samples) # for debugging 
-dataset = MongoTupleheadDataset(config_path = WIREHEAD_CONFIG)
+# dataset = MongoTupleheadDataset(config_path = WIREHEAD_CONFIG)
 dataloader = DataLoader(dataset,
                         batch_size=batch_size,
-                        prefetch_factor = 10,
+                        prefetch_factor = 1,
                         num_workers=num_generators, pin_memory=True)
 
 samples_read = 0
 # Training loop
 for epoch in range(num_epochs):
-    batch_idxes = [[i] for i in range(num_samples)]
-    for batch_idx in batch_idxes:
-        inputs, labels = dataset[batch_idx][0]
-
-        inputs = inputs.unsqueeze(0).unsqueeze(0).to(device).to(dtype)  # Add channel dimension
-        labels = labels.unsqueeze(0).to(device).to(dtype)
+    for batch_idx, (inputs, labels) in enumerate(dataloader):
+        inputs = inputs.unsqueeze(0).to(device).to(dtype)  # Add channel dimension
+        labels = labels.to(device).to(dtype)
         outputs = model(inputs)
         loss = criterion(outputs, labels)
         dice = 1 - loss.item()
@@ -120,8 +116,8 @@ for epoch in range(num_epochs):
                        "epoch": epoch, 
                        "samples_read": samples_read})
         # Print progress
-        if (batch_idx[0] + 1) % 1 == 0: 
-            print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx[0]+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
+        if (batch_idx + 1) % 1 == 0: 
+            print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
 
 # Save to logdir
 torch.save(model.state_dict(), model_path)
