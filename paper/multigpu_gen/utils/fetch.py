@@ -282,12 +282,12 @@ def get_eval(n = 100):
     device = torch.device(device_name)
     dataloader = get_eval_dataloader()
     eval = iter(dataloader)
-    labels = []
+    stuff = []
     for i in range(n):
-        label = next(eval)[1]
+        image, label = next(eval)
         label_mapped = DK2synth(label, device)
-        labels.append(label_mapped) 
-    return labels
+        stuff.append((image, label_mapped)) 
+    return stuff 
 
 
 if __name__ == "__main__":
