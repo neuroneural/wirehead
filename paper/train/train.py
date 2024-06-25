@@ -16,6 +16,7 @@ from utils.model import UNet
 from utils.dice import faster_dice, DiceLoss
 from utils.logging import Logger, gpu_monitor 
 from utils.generator import SynthsegDataset
+from utils.fetch import get_eval
 from wirehead import MongoTupleheadDataset
 
 ### Userland ###
@@ -29,8 +30,8 @@ batch_size = 1         # this should be 1 to match synthseg
 learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
 n_classes = 18          # unclear 
-num_samples = 10
-num_epochs = 1000      # 100*10 = 1000
+num_samples = 10000
+num_epochs = 1         # 100*10 = 1000
 num_generators = 1     # unclear
 dtype = torch.float32
 ### outside ###
@@ -78,11 +79,15 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 # Create the dataset and dataloader
 dataset = SynthsegDataset(num_samples=num_samples)
 # dataset = RandomDataset(num_samples=num_samples) # for debugging 
-# dataset = MongoTupleheadDataset(config_path = WIREHEAD_CONFIG)
+# dataloader = DataLoader(dataset, batch_size=batch_size)
 dataloader = DataLoader(dataset,
-                        batch_size=batch_size,
-                        prefetch_factor = 1,
+                        batch_size=batch_size, 
                         num_workers=num_generators, pin_memory=True)
+
+# Get some real brains from HCPnew to eval
+eval_set = get_eval(10)
+
+print(f"Training: Got {len(eval_set)} samples for testing")
 
 samples_read = 0
 # Training loop
@@ -115,8 +120,25 @@ for epoch in range(num_epochs):
                        "dice": real_dice, 
                        "epoch": epoch, 
                        "samples_read": samples_read})
+            
+            if (batch_idx + 1) % 10 == 0: # test on eval  
+                with torch.inference_mode():
+                    eval_dices = []
+                    for img, lab in eval_set:
+                        img = img.cuda()
+                        out = model(img)
+                        out = torch.squeeze(torch.argmax(out, 1)).long()
+                        lab = torch.squeeze(lab)
+                        eval_dice = torch.mean(
+                            faster_dice(out, lab, range(n_classes))
+                        )
+                        eval_dices.append(eval_dice)
+
+                    wandb.log({"eval_dice": sum(eval_dices)/len(eval_dices)})
+                    print(f"Eval: Average dice: {sum(eval_dices)/len(eval_dices)}")
+
         # Print progress
-        if (batch_idx + 1) % 1 == 0: 
+        if (batch_idx + 1) % 10 == 0: 
             print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
 
 # Save to logdir
