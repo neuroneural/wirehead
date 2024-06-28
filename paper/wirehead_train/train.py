@@ -19,6 +19,7 @@ from utils.dice import faster_dice, DiceLoss
 from utils.logging import Logger, gpu_monitor 
 from utils.fetch import get_eval
 from wirehead import MongoTupleheadDataset
+from wirehead.dataset import unit_interval_normalize
 
 ### Userland ###
 use_wandb = True 

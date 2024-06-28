@@ -18,6 +18,7 @@ from utils.logging import Logger, gpu_monitor
 from utils.generator import SynthsegDataset
 from utils.fetch import get_eval
 from wirehead import MongoTupleheadDataset
+from wirehead.dataset import unit_interval_normalize
 
 ### Userland ###
 use_wandb = True 
@@ -94,6 +95,7 @@ samples_read = 0
 for epoch in range(num_epochs):
     for batch_idx, (inputs, labels) in enumerate(dataloader):
         inputs = inputs.unsqueeze(0).to(device).to(dtype)  # Add channel dimension
+        inputs = unit_interval_normalize(inputs)
         labels = labels.to(device).to(dtype)
         outputs = model(inputs)
         loss = criterion(outputs, labels)
@@ -126,6 +128,7 @@ for epoch in range(num_epochs):
                     eval_dices = []
                     for img, lab in eval_set:
                         img = img.cuda()
+                        img = unit_interval_normalize(img) # this is slow and should be preprocessed in the first place
                         out = model(img)
                         out = torch.squeeze(torch.argmax(out, 1)).long()
                         lab = torch.squeeze(lab)
