@@ -19,6 +19,7 @@ from utils.dice import faster_dice, DiceLoss
 from utils.logging import Logger, gpu_monitor 
 from utils.fetch import get_eval
 from wirehead import MongoTupleheadDataset
+from wirehead.dataset import unit_interval_normalize
 
 ### Userland ###
 use_wandb = True 
@@ -31,7 +32,7 @@ learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
 n_classes = 18          # unclear 
 num_samples = 100
-num_epochs = 1000      # 100*10 = 1000
+num_epochs = 500      # 100*10 = 1000
 num_generators = 1     # unclear
 dtype = torch.float32
 ### outside ###
@@ -95,6 +96,7 @@ for epoch in range(num_epochs):
     batch_idxes = [[i] for i in range(num_samples)]
     for batch_idx in batch_idxes:
         inputs, labels = dataset[batch_idx][0]
+        inputs = unit_interval_normalize(inputs)
 
         inputs = inputs.unsqueeze(0).unsqueeze(0).to(device).to(dtype)  # Add channel dimension
         labels = labels.unsqueeze(0).to(device).to(dtype)
@@ -134,6 +136,7 @@ for epoch in range(num_epochs):
         eval_dices = []
         for img, lab in eval_set:
             img = img.cuda()
+            img = unit_interval_normalize(img)
             out = model(img)
             out = torch.squeeze(torch.argmax(out, 1)).long()
             lab = torch.squeeze(lab)
@@ -147,10 +150,6 @@ for epoch in range(num_epochs):
 
         wandb.log({"eval_dice": sum(eval_dices)/len(eval_dices)})
         print(f"Eval: Average dice: {sum(eval_dices)/len(eval_dices)}")
-
-        del img
-        del lab
-        del out
         del eval_dices
 
 # Save to logdir
