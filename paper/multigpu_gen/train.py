@@ -22,7 +22,7 @@ from wirehead import MongoTupleheadDataset
 from wirehead.dataset import unit_interval_normalize
 
 ### Userland ###
-use_wandb = True 
+use_wandb = False 
 wandb_project = "wirehead_1xA100_wirehead_mutligpugen"
 WIREHEAD_CONFIG = "./conf/wirehead_config.yaml"
 
@@ -32,7 +32,7 @@ learning_rate = 1e-4   # this should be 1 to match synthseg
 n_channels = 1         # unclear
 n_classes = 18          # unclear 
 num_samples = 100
-num_epochs = 500      # 100*10 = 1000
+num_epochs = 1 # 100*10 = 1000
 num_generators = 1     # unclear
 dtype = torch.float32
 ### outside ###
@@ -75,17 +75,23 @@ if use_wandb:
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Initialize the model, loss function, and optimizer
 model = UNet(n_channels=n_channels, n_classes=n_classes).to(device).to(dtype)
+
+# Load model from checkpoint
+checkpoint = "./log/2024-06-26_15-18/unet_model.pth"
+model.load_state_dict(torch.load(checkpoint))
+
+
 criterion = DiceLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 # Create the dataset and dataloader
 # dataset = SynthsegDataset(num_samples=num_samples)
 # dataset = RandomDataset(num_samples=num_samples) # for debugging 
-dataset = MongoTupleheadDataset(config_path = WIREHEAD_CONFIG)
-dataloader = DataLoader(dataset,
-                        batch_size=batch_size,
-                        prefetch_factor = 10,
-                        num_workers=num_generators, pin_memory=True)
-
+# dataset = MongoTupleheadDataset(config_path = WIREHEAD_CONFIG)
+# dataloader = DataLoader(dataset,
+#                         batch_size=batch_size,
+#                         prefetch_factor = 10,
+#                         num_workers=num_generators, pin_memory=True)
+#
 # Get some real brains from HCPnew to eval
 eval_set = get_eval(10)
 print(f"Training: Got {len(eval_set)} samples for testing")
@@ -93,45 +99,45 @@ print(f"Training: Got {len(eval_set)} samples for testing")
 samples_read = 0
 # Training loop
 for epoch in range(num_epochs):
-    batch_idxes = [[i] for i in range(num_samples)]
-    for batch_idx in batch_idxes:
-        inputs, labels = dataset[batch_idx][0]
-        inputs = unit_interval_normalize(inputs)
-
-        inputs = inputs.unsqueeze(0).unsqueeze(0).to(device).to(dtype)  # Add channel dimension
-        labels = labels.unsqueeze(0).to(device).to(dtype)
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        dice = 1 - loss.item()
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        # Update samples read
-        samples_read += batch_size
-        current_time = time.time()
-        # Save metrics to CSV and wandb
-        with open(csv_path, 'a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow([current_time, dice, epoch, samples_read])
-        if use_wandb:
-            result = torch.squeeze(torch.argmax(outputs, 1)).long()
-            labels = torch.squeeze(labels)
-            real_dice = torch.mean(
-                faster_dice(result, labels, range(n_classes))
-            ) # use real dice instead of dice loss
-            wandb.log({"time": current_time, 
-                       "dice": real_dice, 
-                       "epoch": epoch, 
-                       "samples_read": samples_read})
-            del result
-            del labels
-        del inputs
-        # Print progress
-        if (batch_idx[0] + 1) % 1 == 0: 
-            print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx[0]+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
-    # Eval on real data
+    # batch_idxes = [[i] for i in range(num_samples)]
+    # for batch_idx in batch_idxes:
+    #     inputs, labels = dataset[batch_idx][0]
+    #     inputs = unit_interval_normalize(inputs)
+    #
+    #     inputs = inputs.unsqueeze(0).unsqueeze(0).to(device).to(dtype)  # Add channel dimension
+    #     labels = labels.unsqueeze(0).to(device).to(dtype)
+    #     outputs = model(inputs)
+    #     loss = criterion(outputs, labels)
+    #     dice = 1 - loss.item()
+    #
+    #     optimizer.zero_grad()
+    #     loss.backward()
+    #     optimizer.step()
+    #
+    #     # Update samples read
+    #     samples_read += batch_size
+    #     current_time = time.time()
+    #     # Save metrics to CSV and wandb
+    #     with open(csv_path, 'a', newline='') as file:
+    #         writer = csv.writer(file)
+    #         writer.writerow([current_time, dice, epoch, samples_read])
+    #     if use_wandb:
+    #         result = torch.squeeze(torch.argmax(outputs, 1)).long()
+    #         labels = torch.squeeze(labels)
+    #         real_dice = torch.mean(
+    #             faster_dice(result, labels, range(n_classes))
+    #         ) # use real dice instead of dice loss
+    #         wandb.log({"time": current_time, 
+    #                    "dice": real_dice, 
+    #                    "epoch": epoch, 
+    #                    "samples_read": samples_read})
+    #         del result
+    #         del labels
+    #     del inputs
+    #     # Print progress
+    #     if (batch_idx[0] + 1) % 1 == 0: 
+    #         print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx[0]+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
+    # # Eval on real data
     with torch.inference_mode():
         eval_dices = []
         for img, lab in eval_set:
@@ -147,16 +153,17 @@ for epoch in range(num_epochs):
             del img
             del out
             del lab
+            print(eval_dice)
 
         wandb.log({"eval_dice": sum(eval_dices)/len(eval_dices)})
         print(f"Eval: Average dice: {sum(eval_dices)/len(eval_dices)}")
         del eval_dices
 
 # Save to logdir
-torch.save(model.state_dict(), model_path)
-shutil.copy("train.py", train_script_path)
+# torch.save(model.state_dict(), model_path)
+# shutil.copy("train.py", train_script_path)
 # Signal the GPU monitoring thread to stop
-if use_wandb:
-    stop_event.set()
-    gpu_monitor_thread.join()
-print(f"Model weights, train.py script and output saved in: {log_dir}")
+# if use_wandb:
+#     stop_event.set()
+#     gpu_monitor_thread.join()
+# print(f"Model weights, train.py script and output saved in: {log_dir}")

@@ -11,7 +11,7 @@ cat conf/wirehead_config.yaml
 
 # Run the training script with these hardware configs
 srun -p qTRDGPUH -A psy53c17 -v -t1200 -N1-1 -c16 --gres=gpu:A100:1 --mem=200g --pty --nodelist=arctrddgxa003 \
- train_for_distributed.sh --project_name $PROJECT_NAME --experiment_id $EXPERIMENT_ID &
+ train.sh --project_name $PROJECT_NAME --experiment_id $EXPERIMENT_ID &
 
 # Run the generator and manager with the same configs
-sbatch --export=ALL gen/deploy_workers.sh
+# sbatch --export=ALL gen/deploy_workers.sh
