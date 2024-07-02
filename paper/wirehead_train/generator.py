@@ -1,4 +1,6 @@
 import sys
+import time 
+import csv
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -95,12 +97,20 @@ def create_generator(task_id = 0, training_seg=None):
     training_seg = DATA_FILES[task_id % len(DATA_FILES)] if training_seg == None else training_seg
     brain_generator = BrainGenerator(PATH_TO_DATA + training_seg)
     print(f"Generator: SynthSeg is generating off {training_seg}",flush=True,)
-    # 2. Run your generator in a loop, and pass in your preprocessing options
-    for i in range(N_SAMPLES):
-        img, lab = preprocessing_pipe(brain_generator.generate_brain())
-        print(f"Generator: Unique sample {i}")
-        # 3. Yield your data, which will automatically be pushed to mongo
-        yield (img, lab)
+    # open csv file for writing timestamps
+    with open('log/throughput/generator.csv', 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        csv_writer.writerow(['sample', 'timestamp'])
+
+        for i in range(N_SAMPLES):
+            img, lab = preprocessing_pipe(brain_generator.generate_brain())
+            print(f"Generator: Unique sample {i}")
+            # log timestamp before yielding
+            timestamp = time.time()
+            csv_writer.writerow([i, timestamp])
+            csvfile.flush()  # ensure it's written immediately
+
+            yield (img, lab)
 
 if __name__ == "__main__":
     brain_generator    = create_generator()
