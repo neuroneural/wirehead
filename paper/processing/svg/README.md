@@ -1,4 +1,9 @@
 
+
+# samples read
+
+convert to latex :<
+
 ---
 
 # gpu
@@ -12,6 +17,8 @@ full     : full dataset, lots of smoothing
 ---
 
 # experiment names
+
+disk                 : naive load sample from disk -> train
 
 baseline             : naive generate -> train
 
