@@ -1,0 +1,4 @@
+*.pth
+wirehead/
+Synthseg/
+.wirehead/

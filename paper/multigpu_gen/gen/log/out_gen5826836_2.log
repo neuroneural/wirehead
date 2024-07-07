@@ -1,0 +1,9 @@
+This is a Synthseg generation job running on node arctrdagn032
+Project Name: wirehead_dev
+Experiment ID: test
+Experiment name: test
+Generator: Initialized
+Compiling list of unique labels
+processing 1/1
+Generator: SynthSeg is generating off training_seg_03.nii.gz
+Logging to: ./log/test/generator/worker2.log
