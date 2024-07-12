@@ -55,9 +55,6 @@ brew services start mongodb-community@7.0
 brew services stop mongodb-community@7.0
 ```
 
-**Warning:** These instructions are simplified for ease of setup in a development environment. For production use, ensure proper security measures, authentication, and follow best practices as outlined in the official MongoDB documentation.
-Installing and deploying MongoDB
-
 ## 2. Create virtual environment
 ```bash
 # Note:
