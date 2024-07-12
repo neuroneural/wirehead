@@ -10,9 +10,12 @@ Caching system for scaling of synthetic data generators using MongoDB
 
 ## 1. MongoDB Setup (For Development/Testing Only)
 
+- [Ubuntu Setup](#a-quick-mongodb-setup-ubuntu)
+- [macOS Setup](#b-quick-mongodb-setup-macos)
+
 **Important Note:** The following instructions are for development and testing purposes only. For production deployments, please refer to the [official MongoDB documentation](https://www.mongodb.com/docs/manual/administration/install-community/) for secure and proper installation guidelines.
 
-#### a. Quick MongoDB Setup (Ubuntu):
+#### a. Quick MongoDB Setup ([Ubuntu](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/)):
 
 ```bash
 sudo apt-get install gnupg curl
@@ -34,7 +37,7 @@ sudo systemctl start mongod
 sudo systemctl stop mongod
 ```
 
-#### b. Quick MongoDB Setup (MacOS):
+#### b. Quick MongoDB Setup ([MacOS](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-os-x/)):
 
 ```bash
 brew tap mongodb/brew
