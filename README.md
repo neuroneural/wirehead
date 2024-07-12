@@ -4,20 +4,20 @@ Caching system for scaling of synthetic data generators using MongoDB
 
 ---
 
-## Installation 
+# I. Installation 
 
-### MongoDB Setup (For Development/Testing Only)
+## 1. MongoDB Setup (For Development/Testing Only)
 
 **Important Note:** The following instructions are for development and testing purposes only. For production deployments, please refer to the [official MongoDB documentation](https://www.mongodb.com/docs/manual/administration/install-community/) for secure and proper installation guidelines.
 
-#### Quick MongoDB Setup (Ubuntu):
+#### a. Quick MongoDB Setup (Ubuntu):
 
 ```bash
 sudo apt-get install gnupg curl
 curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
    sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
    --dearmor
-echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 sudo apt-get update
 sudo apt-get install -y mongodb-org
 ```
@@ -27,7 +27,12 @@ sudo apt-get install -y mongodb-org
 sudo systemctl start mongod
 ```
 
-#### Quick MongoDB Setup (MacOS):
+```bash
+# Stop MongoDB
+sudo systemctl stop mongod
+```
+
+#### b. Quick MongoDB Setup (MacOS):
 
 ```bash
 brew tap mongodb/brew
@@ -40,10 +45,15 @@ brew install mongodb-community@7.0
 brew services start mongodb-community@7.0
 ```
 
+```bash
+# Run MongoDB
+brew services stop mongodb-community@7.0
+```
+
 **Warning:** These instructions are simplified for ease of setup in a development environment. For production use, ensure proper security measures, authentication, and follow best practices as outlined in the official MongoDB documentation.
 Installing and deploying MongoDB
 
-### Create virtual environment
+## 2. Create virtual environment
 ```
 # Conda
 conda create -n wirehead
@@ -54,25 +64,25 @@ python3 -m venv wirehead
 source venv/bin/activate
 ```
 
-### Install wirehead:
+## 3. Install wirehead:
 ```
 git clone git@github.com:neuroneural/wirehead.git
 cd wirehead
 pip install -e .
 ```
 
-### Run the test
+## 4. Run the test
 ```
 cd examples/unit
 chmod +x test.sh
 ./test.sh
 ```
 
-## Usage ## 
+# II. Usage 
 
 See examples/unit for a minimal example 
 
-Manager:
+## 1. Manager
 ```
 from wirehead import WireheadManager
 
@@ -81,7 +91,7 @@ if __name__ == "__main__":
     wirehead_runtime.run_manager()
 ```
 
-Generator:
+## 2. Generator
 
 ```
 import numpy as np
@@ -102,7 +112,7 @@ if __name__ == "__main__":
     wirehead_runtime.run_generator()
 ```
 
-Dataset:
+## 3. Dataset
 ```
 import torch
 from wirehead import MongoheadDataset
@@ -114,11 +124,11 @@ data = dataset[idx]
 sample, label = data[0]['input'], data[0]['label']
 ```
 
-## Config guide
+# III. Config guide
 
 All wirehead configs live inside yaml files, and must be specified when declaring wirehead manager, generator and dataset objects. For the system to work, all components must use the __same__ configs.
 
-Basic configs:
+## 1. Basic configs:
 ```
 MONGOHOST -- IP address or hostname for machine running MongoDB instance
 DBNAME -- MongoDB database name
@@ -127,7 +137,7 @@ SWAP_CAP -- Size cap for read and write collections. bigger means bigger cache, 
         SWAP_CAP * SIZE OF YIELDED TUPLE * 2
 ```
 
-Advanced configs:
+## 2. Advanced configs:
 ```
 SAMPLE -- Array of strings denoting name of samples in data tuple. 
 WRITE_COLLECTION   -- Name of write collection (generators push to this)
@@ -139,36 +149,41 @@ CHUNKSIZE          -- Number of megabytes used for chunking data
 
 ---
 
-## Generator guide
+# IV. Generator example
 
 Wirehead's [WireheadGenerator](https://github.com/neuroneural/wirehead/blob/main/wirehead/generator.py) object takes in a generator, which is a python generator function. This function yields a tuple containing numpy arrays. The number of samples in this tuple should match the number of strings  specified in SAMPLE in config.yaml
 
-Example:
-
-config.yaml:
+## 1. Set SAMPLE in "config.yaml" (note the number of keys)
 ```
-SAMPLE: ["input", "label"]
+SAMPLE: ["a", "b"]
 ```
 
-generating script:
+## 2. Create a generator function, which yields the same number of objects
 ```
 def create_generator():
     while True: 
-        img = np.random.rand(256,256,256)
-        lab = np.random.rand(256,256,256)
-        yield (img, lab)
+        a = np.random.rand(256,256,256)
+        b = np.random.rand(256,256,256)
+        yield (a, b)
+```
 
-brain_generator = create_generator()
-wirehead_runtime = WireheadGenerator(
-    generator = brain_generator,
+## 3. Insert config file path and generator function into WireheadGenerator
+```
+generator = create_generator()
+runtime = WireheadGenerator(
+    generator = generator,
     config_path = "config.yaml" 
 )
-wirehead_runtime.run_generator() an infinite loop
+```
+
+## 4. Press play
+```
+runtime.run_generator() # runs an infinite loop
 ```
 
 ---
 
-## Citation/Contact
+# Citation/Contact
 
 This code is under [MIT](https://github.com/neuroneural/wirehead/blob/main/LICENSE) licensing
 
