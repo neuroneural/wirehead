@@ -30,10 +30,4 @@ python generator.py &
 
 python loader.py
 
-# Print a message indicating that both scripts have finished
-echo
-echo "-----------"
-echo "Test passed"
-echo "-----------"
-
 kill -SIGINT $$
