@@ -1,6 +1,8 @@
-# wirehead #
+# Wirehead #
 
 Caching system for scaling of synthetic data generators using MongoDB
+
+![wirehead-diagram](assets/training-diagram.png)
 
 ---
 
