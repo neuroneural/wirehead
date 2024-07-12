@@ -1,12 +1,8 @@
-dump.rdb
-dev_src/
-./cluster_ping.sh
-./local_ping.sh
 __pycache__
 wandb/
 Synthseg/
 ext/
-mongo_tests/
 wirehead.egg-info/
 SynthSeg/
 examples/*/wirehead/
+venv/
