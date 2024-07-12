@@ -1,23 +1,67 @@
 # wirehead #
 
-Caching system for horizontal scaling of synthetic data generators using MongoDB
+Caching system for scaling of synthetic data generators using MongoDB
 
 ---
 
 ## Installation 
 
-These instructions are different from the regular wirehead installation instructions due to the specific dependencies of SynthSeg
+### MongoDB Setup (For Development/Testing Only)
 
-Instructions:
+**Important Note:** The following instructions are for development and testing purposes only. For production deployments, please refer to the [official MongoDB documentation](https://www.mongodb.com/docs/manual/administration/install-community/) for secure and proper installation guidelines.
+
+#### Quick MongoDB Setup (Ubuntu):
+
+```bash
+sudo apt-get install gnupg curl
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+   sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
+   --dearmor
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+```
+
+```bash
+# Run MongoDB
+sudo systemctl start mongod
+```
+
+#### Quick MongoDB Setup (MacOS):
+
+```bash
+brew tap mongodb/brew
+brew update
+brew install mongodb-community@7.0
+```
+
+```bash
+# Run MongoDB
+brew services start mongodb-community@7.0
+```
+
+**Warning:** These instructions are simplified for ease of setup in a development environment. For production use, ensure proper security measures, authentication, and follow best practices as outlined in the official MongoDB documentation.
+Installing and deploying MongoDB
+
+### Create virtual environment
+```
+# Conda
+conda create -n wirehead
+conda activate wirehead
+
+# venv
+python3 -m venv wirehead
+source venv/bin/activate
+```
+
+### Install wirehead:
 ```
 git clone git@github.com:neuroneural/wirehead.git
-python3 -m venv venv 
-source venv/bin/activate
+cd wirehead
 pip install -e .
-pip install -r requirements.txt
 ```
 
-Run the test
+### Run the test
 ```
 cd examples/unit
 chmod +x test.sh
