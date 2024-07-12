@@ -1,6 +1,6 @@
 MONGOHOST: "localhost"
 DBNAME: "synthseg-example"
-SWAP_CAP: 10
+SWAP_CAP: 2
 
 # Change if you know what you're doing
 SAMPLE: ["data", "label"]
