@@ -10,9 +10,12 @@ Caching system for scaling of synthetic data generators using MongoDB
 
 ## 1. MongoDB Setup (For Development/Testing Only)
 
+- [Ubuntu Setup](#a-quick-mongodb-setup-ubuntu)
+- [macOS Setup](#b-quick-mongodb-setup-macos)
+
 **Important Note:** The following instructions are for development and testing purposes only. For production deployments, please refer to the [official MongoDB documentation](https://www.mongodb.com/docs/manual/administration/install-community/) for secure and proper installation guidelines.
 
-#### a. Quick MongoDB Setup (Ubuntu):
+#### a. Quick MongoDB Setup ([Ubuntu](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/)):
 
 ```bash
 sudo apt-get install gnupg curl
@@ -34,7 +37,7 @@ sudo systemctl start mongod
 sudo systemctl stop mongod
 ```
 
-#### b. Quick MongoDB Setup (MacOS):
+#### b. Quick MongoDB Setup ([MacOS](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-os-x/)):
 
 ```bash
 brew tap mongodb/brew
@@ -56,25 +59,29 @@ brew services stop mongodb-community@7.0
 Installing and deploying MongoDB
 
 ## 2. Create virtual environment
-```
+```bash
+# Note:
+# python version doesn't necessarily have to be 3.10
+# but this gives better support for some generation pipelines
+
 # Conda
-conda create -n wirehead
+conda create -n wirehead python=3.10
 conda activate wirehead
 
 # venv
-python3 -m venv wirehead
+python3.10 -m venv wirehead 
 source venv/bin/activate
 ```
 
 ## 3. Install wirehead:
-```
+```bash
 git clone git@github.com:neuroneural/wirehead.git
 cd wirehead
 pip install -e .
 ```
 
 ## 4. Run the test
-```
+```bash
 cd examples/unit
 chmod +x test.sh
 ./test.sh
@@ -85,7 +92,7 @@ chmod +x test.sh
 See examples/unit for a minimal example 
 
 ## 1. Manager
-```
+```python
 from wirehead import WireheadManager
 
 if __name__ == "__main__":
@@ -95,7 +102,7 @@ if __name__ == "__main__":
 
 ## 2. Generator
 
-```
+```python
 import numpy as np
 from wirehead import WireheadGenerator 
 
@@ -115,7 +122,7 @@ if __name__ == "__main__":
 ```
 
 ## 3. Dataset
-```
+```python
 import torch
 from wirehead import MongoheadDataset
 
@@ -131,7 +138,7 @@ sample, label = data[0]['input'], data[0]['label']
 All wirehead configs live inside yaml files, and must be specified when declaring wirehead manager, generator and dataset objects. For the system to work, all components must use the __same__ configs.
 
 ## 1. Basic configs:
-```
+```yaml
 MONGOHOST -- IP address or hostname for machine running MongoDB instance
 DBNAME -- MongoDB database name
 PORT -- Port for MongoDB instance. Defaults to 27017
@@ -140,7 +147,7 @@ SWAP_CAP -- Size cap for read and write collections. bigger means bigger cache, 
 ```
 
 ## 2. Advanced configs:
-```
+```yaml
 SAMPLE -- Array of strings denoting name of samples in data tuple. 
 WRITE_COLLECTION   -- Name of write collection (generators push to this)
 READ_COLLECTION    -- Name of read colletion (dataset reads from this)
@@ -153,15 +160,17 @@ CHUNKSIZE          -- Number of megabytes used for chunking data
 
 # IV. Generator example
 
-Wirehead's [WireheadGenerator](https://github.com/neuroneural/wirehead/blob/main/wirehead/generator.py) object takes in a generator, which is a python generator function. This function yields a tuple containing numpy arrays. The number of samples in this tuple should match the number of strings  specified in SAMPLE in config.yaml
+See a simple example in [examples/unit/generator.py](examples/unit/generator.py) or a Synthseg example in [examples/synthseg/generator.py](examples/synthseg/generator.py)
+
+Wirehead's [WireheadGenerator](https://github.com/neuroneural/wirehead/blob/main/wirehead/generator.py) object takes in a generator, which is a python generator function. This function yields a tuple containing numpy arrays. The number of samples in this tuple should match the number of strings specified in SAMPLE in config.yaml
 
 ## 1. Set SAMPLE in "config.yaml" (note the number of keys)
-```
+```yaml
 SAMPLE: ["a", "b"]
 ```
 
 ## 2. Create a generator function, which yields the same number of objects
-```
+```python
 def create_generator():
     while True: 
         a = np.random.rand(256,256,256)
@@ -170,7 +179,7 @@ def create_generator():
 ```
 
 ## 3. Insert config file path and generator function into WireheadGenerator
-```
+```python
 generator = create_generator()
 runtime = WireheadGenerator(
     generator = generator,
@@ -179,7 +188,7 @@ runtime = WireheadGenerator(
 ```
 
 ## 4. Press play
-```
+```python
 runtime.run_generator() # runs an infinite loop
 ```
 
