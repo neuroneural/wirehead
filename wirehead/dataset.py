@@ -37,6 +37,7 @@ class MongoheadDataset(Dataset):
 
     def __init__(self,
                  config_path="",
+                 timeout=60,
                  collection=None,
                  sample=("data", "label"),
                  transform=binary_to_tensor,
@@ -59,6 +60,7 @@ class MongoheadDataset(Dataset):
         self.transform = transform
         self.keeptrying = keeptrying    # retries if fetch fails
         self.fields = {"id": 1, "chunk": 1, "kind": 1, "chunk_id": 1}
+        self.timeout = timeout
 
         if config_path != "" and os.path.exists(config_path):
             self.load_from_yaml(config_path)
@@ -87,7 +89,7 @@ class MongoheadDataset(Dataset):
         self.collection = db[read_collection]
         self.sample = tuple(config.get("SAMPLE"))
 
-    def wait_for_data(self, db, timeout = 5):
+    def wait_for_data(self, db):
         """
         Prevents data object from reading before data is ready
         """
@@ -97,9 +99,9 @@ class MongoheadDataset(Dataset):
         while latest_status is None:
             latest_status = status_collection.find_one(sort=[("_id", -1)])
             print("Dataset: Database does not exist, hanging")
-            time.sleep(60)
+            time.sleep(10)
             curr += 1
-            if curr == timeout:
+            if curr == self.timeout:
                 print("Waited too long, exiting")
                 return
 

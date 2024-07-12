@@ -8,6 +8,7 @@ setup(
         'pymongo',
         'torch',
         'numpy',
+        'PyYaml',
         # List your package dependencies here
         # Example: 'numpy>=1.19.0',
     ],
