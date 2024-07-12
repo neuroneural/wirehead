@@ -60,12 +60,14 @@ Installing and deploying MongoDB
 
 ## 2. Create virtual environment
 ```
+# python version doesn't necessarily have to be 3.10 but some this gives better support for some generation pipelines
+
 # Conda
-conda create -n wirehead
+conda create -n wirehead python=3.8
 conda activate wirehead
 
 # venv
-python3 -m venv wirehead
+python3.10 -m venv wirehead 
 source venv/bin/activate
 ```
 
