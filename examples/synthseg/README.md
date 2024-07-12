@@ -2,11 +2,11 @@
 
 This folder contains instructions to install, run and customize [SynthSeg](https://github.com/BBillot/SynthSeg) + Wirehead. 
 
-This is specific to running SynthSeg and Wirehead locally. For instructions to run SynthSeg + Wirehead on a slurm cluster, do check out examples/synthseg_slurm
-
 ---
 
 ## Installation 
+
+[Install wirehead and mongoDB](https://github.com/neuroneural/wirehead/tree/main)
 
 Install the SynthSeg generator
 ```
