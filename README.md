@@ -39,6 +39,12 @@ sudo systemctl stop mongod
 
 #### b. Quick MongoDB Setup ([MacOS](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-os-x/)):
 
+Install [homebrew](https://brew.sh/) if you haven't
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+
 ```bash
 brew tap mongodb/brew
 brew update
