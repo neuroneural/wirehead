@@ -6,7 +6,7 @@ This folder contains instructions to install, run and customize [SynthSeg](https
 
 ## Installation 
 
-[Install wirehead and mongoDB](https://github.com/neuroneural/wirehead/tree/main)
+[Install wirehead and mongoDB](https://github.com/neuroneural/wirehead/blob/main/README.md)
 
 Install the SynthSeg generator
 ```
