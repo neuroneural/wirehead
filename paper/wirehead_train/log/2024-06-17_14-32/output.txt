@@ -1,2 +1,0 @@
-Dataset: config loaded from config.yaml
-Epoch [1/50], Batch [10/10], Loss: 1.3057

@@ -1,8 +1,0 @@
-Dataset: config loaded from config.yaml
-Dataset: Swap has not happened, hanging
-Dataset: Swap has not happened, hanging
-Dataset: Swap has not happened, hanging
-Dataset: Swap has not happened, hanging
-Dataset: Swap has not happened, hanging
-Dataset: Swap has not happened, hanging
-Received SIGINT signal. Exporting wandb log and terminating...

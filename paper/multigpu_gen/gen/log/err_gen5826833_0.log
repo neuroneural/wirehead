@@ -1,5 +1,0 @@
-Error output test
-Traceback (most recent call last):
-  File "/data/users1/mdoan4/wirehead/paper/multigpu_gen/gen/worker.py", line 145, in <module>
-    if args.experiment_name:
-AttributeError: 'Namespace' object has no attribute 'experiment_name'
