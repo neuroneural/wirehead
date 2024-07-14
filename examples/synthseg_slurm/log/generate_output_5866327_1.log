@@ -1,19 +1,0 @@
-This is a wirehead job on arctrdagn034
-no change     /data/users1/mdoan4/anaconda3/condabin/conda
-no change     /data/users1/mdoan4/anaconda3/bin/conda
-no change     /data/users1/mdoan4/anaconda3/bin/conda-env
-no change     /data/users1/mdoan4/anaconda3/bin/activate
-no change     /data/users1/mdoan4/anaconda3/bin/deactivate
-no change     /data/users1/mdoan4/anaconda3/etc/profile.d/conda.sh
-no change     /data/users1/mdoan4/anaconda3/etc/fish/conf.d/conda.fish
-no change     /data/users1/mdoan4/anaconda3/shell/condabin/Conda.psm1
-no change     /data/users1/mdoan4/anaconda3/shell/condabin/conda-hook.ps1
-no change     /data/users1/mdoan4/anaconda3/lib/python3.8/site-packages/xontrib/conda.xsh
-no change     /data/users1/mdoan4/anaconda3/etc/profile.d/conda.csh
-no change     /home/users/mdoan4/.bashrc
-No action taken.
-Generator: Initialized
-Compiling list of unique labels
-processing 1/1
-Generator: SynthSeg is using example.nii.gz
-1/1 [==============================] - ETA: 0s1/1 [==============================] - 7s 7s/step
