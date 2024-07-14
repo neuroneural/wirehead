@@ -1,0 +1,54 @@
+
+CondaError: Run 'conda init' before 'conda activate'
+
+2024-07-14 15:18:26.434079: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2024-07-14 15:18:26.434163: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2024-07-14 15:18:26.498642: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2024-07-14 15:18:26.632384: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2024-07-14 15:18:28.031824: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+WARNING:tensorflow:From /data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/tensorflow/python/util/deprecation.py:660: calling map_fn_v2 (from tensorflow.python.ops.map_fn) with dtype is deprecated and will be removed in a future version.
+Instructions for updating:
+Use fn_output_signature instead
+2024-07-14 15:18:34.756953: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1929] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 43585 MB memory:  -> device: 0, name: NVIDIA A40, pci bus id: 0000:21:00.0, compute capability: 8.6
+2024-07-14 15:18:43.045529: I external/local_tsl/tsl/platform/default/subprocess.cc:304] Start cannot spawn child process: No such file or directory
+2024-07-14 15:18:44.975651: I external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:454] Loaded cuDNN version 8902
+2024-07-14 15:18:45.337047: I external/local_tsl/tsl/platform/default/subprocess.cc:304] Start cannot spawn child process: No such file or directory
+Traceback (most recent call last):
+  File "/data/users1/mdoan4/dev/wirehead/examples/synthseg_slurm/worker.py", line 46, in <module>
+    wirehead_generator.run_generator()
+  File "/data/users1/mdoan4/dev/wirehead/wirehead/generator.py", line 127, in run_generator
+    self.generate_and_insert()
+  File "/data/users1/mdoan4/dev/wirehead/wirehead/generator.py", line 114, in generate_and_insert
+    index = self.get_current_idx()
+  File "/data/users1/mdoan4/dev/wirehead/wirehead/generator.py", line 100, in get_current_idx
+    counter_doc = dbc.find_one_and_update(
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/collection.py", line 3449, in find_one_and_update
+    return self.__find_and_modify(
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/collection.py", line 3110, in __find_and_modify
+    return self.__database.client._retryable_write(
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/mongo_client.py", line 1575, in _retryable_write
+    return self._retry_with_session(retryable, func, s, bulk, operation, operation_id)
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/mongo_client.py", line 1461, in _retry_with_session
+    return self._retry_internal(
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/_csot.py", line 108, in csot_wrapper
+    return func(self, *args, **kwargs)
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/mongo_client.py", line 1507, in _retry_internal
+    ).run()
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/mongo_client.py", line 2353, in run
+    return self._read() if self._is_read else self._write()
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/mongo_client.py", line 2456, in _write
+    self._server = self._get_server()
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/mongo_client.py", line 2439, in _get_server
+    return self._client._select_server(
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/mongo_client.py", line 1322, in _select_server
+    server = topology.select_server(
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/topology.py", line 368, in select_server
+    server = self._select_server(
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/topology.py", line 346, in _select_server
+    servers = self.select_servers(
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/topology.py", line 253, in select_servers
+    server_descriptions = self._select_servers_loop(
+  File "/data/users1/mdoan4/anaconda3/envs/wirehead_dev/lib/python3.10/site-packages/pymongo/topology.py", line 303, in _select_servers_loop
+    raise ServerSelectionTimeoutError(
+pymongo.errors.ServerSelectionTimeoutError: localhost:27017: [Errno 111] Connection refused (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms), Timeout: 30s, Topology Description: <TopologyDescription id: 6693ec465d784999b6a5d329, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [Errno 111] Connection refused (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>]>

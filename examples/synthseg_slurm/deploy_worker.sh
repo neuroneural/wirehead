@@ -12,10 +12,9 @@
 #SBATCH -A psy53c17
 #SBATCH --array=0-2
 
-echo "This is a Synthseg generation job running on node $(hostname)"
-echo "Error output test" >&2
+echo "This is a wirehead job on $(hostname)"
 
-export PYTHONPATH=/data/users1/mdoan4/wirehead:$PYTHONPATH
-source /trdapps/linux-x86_64/envs/plis_conda/bin/activate /trdapps/linux-x86_64/envs/plis_conda/envs/synthseg_38
+conda init
+conda activate wirehead_dev
 
-stdbuf -o0 python worker.py
+python worker.py

@@ -16,7 +16,7 @@ def create_generator(worker_id=0):
         yields : tuple ( data0, data1, ...) """
     training_seg = DATA_FILES[worker_id%len(DATA_FILES)]
     brain_generator = BrainGenerator(
-        DATA_FILES[training_seg],
+        training_seg,
         randomise_res=False,
     )
     print(f"Generator: SynthSeg is using {training_seg}",flush=True,)
