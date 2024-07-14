@@ -6,3 +6,5 @@ wirehead.egg-info/
 SynthSeg/
 examples/*/wirehead/
 venv/
+*nii.gz
+*.log
