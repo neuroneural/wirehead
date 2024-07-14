@@ -1,6 +1,6 @@
 # Wirehead + Synthseg Local Example
 
-This folder contains instructions to install, run and customize [SynthSeg](https://github.com/BBillot/SynthSeg) + Wirehead. 
+This folder contains instructions to install and run [SynthSeg](https://github.com/BBillot/SynthSeg) + Wirehead. 
 
 ---
 
