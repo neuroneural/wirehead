@@ -8,3 +8,4 @@ examples/*/wirehead/
 venv/
 *nii.gz
 *.log
+
