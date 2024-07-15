@@ -1,0 +1,11 @@
+MONGOHOST: "localhost"
+DBNAME: "synthseg-example"
+SWAP_CAP: 2
+
+# Change if you know what you're doing
+SAMPLE: ["data", "label"]
+WRITE_COLLECTION: "write"
+READ_COLLECTION: "read"
+COUNTER_COLLECTION: "counter"
+TEMP_COLLECTION: "temp"
+CHUNKSIZE: 10
