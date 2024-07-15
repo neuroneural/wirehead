@@ -1,6 +1,6 @@
 # Wirehead + Synthseg Local Example
 
-This folder contains instructions to install and run [SynthSeg](https://github.com/BBillot/SynthSeg) + Wirehead. 
+This folder contains instructions to install, run and customize [SynthSeg](https://github.com/BBillot/SynthSeg) + Wirehead. 
 
 ---
 
@@ -17,7 +17,7 @@ pip install -e .
 
 Download an example image
 ```
- curl -L https://github.com/neuroneural/nobrainer-synthseg/blob/master/data/example.nii.gz -o ./example.nii.gz
+curl -L https://github.com/neuroneural/nobrainer-synthseg/raw/master/data/example.nii.gz -o ./example.nii.gz
 ```
 
 Run the test
