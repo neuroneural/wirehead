@@ -1,4 +1,4 @@
-MONGOHOST: "arctrdcn018.rs.gsu.edu"
+MONGOHOST: "localhost"
 DBNAME: "synthseg-example"
 SWAP_CAP: 2
 
