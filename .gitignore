@@ -1,11 +1,9 @@
 __pycache__
 wandb/
-Synthseg/
 ext/
 wirehead.egg-info/
-SynthSeg/
 examples/*/wirehead/
 venv/
 *nii.gz
 *.log
-
+nobrainer-synthseg/
