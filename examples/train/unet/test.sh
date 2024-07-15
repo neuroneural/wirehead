@@ -13,6 +13,8 @@ python utils/manager.py &
 
 python generator.py &
 
-python train.py
+sleep 60
 
 kill -SIGINT $$
+
+python train.py
