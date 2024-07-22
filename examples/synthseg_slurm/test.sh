@@ -6,9 +6,13 @@ terminate_processes() {
     pkill -SIGTERM -P $$
 
     # Cancel the SLURM job if job_id is set
-    if [ ! -z "$job_id" ]; then
-        scancel $job_id
-        echo "Cancelled SLURM job $job_id"
+    if [ ! -z "$generator_id" ]; then
+        scancel $generator_id
+        echo "Cancelled SLURM job $generator_id"
+    fi
+    if [ ! -z "$manager_id" ]; then
+        scancel $manager_id
+        echo "Cancelled SLURM job $manager_id"
     fi
 }
 
@@ -18,13 +22,16 @@ trap terminate_processes SIGINT
 python clean.py
 
 # Run sbatch and capture the job ID
-job_id=$(sbatch --parsable deploy_worker.sh)
-echo "Started SLURM job with ID: $job_id"
+generator_id=$(sbatch --parsable generator.sbatch)
+echo "Started SLURM job with ID: $generator_id"
+manager_id=$(sbatch --parsable manager.sbatch)
+echo "Started SLURM job with ID: $manager_id"
 
 sleep 30
 python loader.py
 
 # Terminate all processes (including the SLURM job)
+python clean.py
 terminate_processes
 
 # Exit the script
