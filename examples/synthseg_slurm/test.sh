@@ -2,6 +2,8 @@
 
 # Function to terminate child processes and SLURM job
 terminate_processes() {
+    # remove garbage from tensorflow 
+    rm __autograph*
     # Send SIGTERM to all child processes
     pkill -SIGTERM -P $$
 
@@ -27,8 +29,9 @@ echo "Started SLURM job with ID: $generator_id"
 manager_id=$(sbatch --parsable manager.sbatch)
 echo "Started SLURM job with ID: $manager_id"
 
-sleep 30
 python loader.py
+echo "Swap occurred, ready to train whenever!"
+sleep 1
 
 # Terminate all processes (including the SLURM job)
 python clean.py
