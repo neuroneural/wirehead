@@ -10,8 +10,9 @@ This folder contains instructions to install, run and customize [SynthSeg](https
 
 Install the SynthSeg generator
 ```
-git clone git@github.com:neuroneural/nobrainer-synthseg.git
-cd nobrainer-synthseg
+https://github.com/neuronets/nobrainer.git
+cd nobrainer
+git checkout synthseg
 pip install -e .
 ```
 
