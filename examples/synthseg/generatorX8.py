@@ -1,4 +1,5 @@
 from time import time
+from time import sleep
 import gc
 import tensorflow as tf
 from nobrainer.processing.brain_generator import BrainGenerator
@@ -13,7 +14,7 @@ from wirehead import WireheadManager, WireheadGenerator
 
 WIREHEAD_CONFIG = "config.yaml"
 DATA_FILES = ["example.nii.gz"]
-CSV_OUTPUT_FILE = "whmemory_usage_log.csv"
+CSV_OUTPUT_FILE = "memory_usage_log.csv"
 NUM_GENERATORS = 8
 
 physical_devices = tf.config.list_physical_devices("GPU")
@@ -43,7 +44,10 @@ def create_generator(worker_id=0):
         randomise_res=False,
     )
     print(f"Generator {worker_id}: SynthSeg is using {training_seg}", flush=True)
+    tot = 0
     while True:
+        print(f"{time()} {worker_id}: tot: {tot}")
+        tot +=1
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
         yield (img, lab)
         gc.collect()
@@ -75,9 +79,14 @@ def log_memory_usage(queue):
                 
                 print(f"{elapsed_time:.2f} CPU: {cpu_usage:.2f} MB. GPU: {gpu_usage:.2f} MB (Generator {worker_id})")
             except Empty:
+                print("failed to write")
                 pass
+            sleep(1)
+
+
 
 if __name__ == "__main__":
+    print(time())
     multiprocessing.set_start_method('spawn')
     queue = multiprocessing.Queue()
     
