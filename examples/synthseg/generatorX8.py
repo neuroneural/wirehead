@@ -9,10 +9,11 @@ import GPUtil
 import csv
 import multiprocessing
 from queue import Empty
+from wirehead import WireheadManager, WireheadGenerator
 
 WIREHEAD_CONFIG = "config.yaml"
 DATA_FILES = ["example.nii.gz"]
-CSV_OUTPUT_FILE = "memory_usage_log.csv"
+CSV_OUTPUT_FILE = "whmemory_usage_log.csv"
 NUM_GENERATORS = 8
 
 physical_devices = tf.config.list_physical_devices("GPU")
@@ -31,18 +32,31 @@ def get_memory_usage():
         gpu_mem = gpu.memoryUsed
     return cpu_mem, gpu_mem
 
-def create_generator(worker_id, queue):
-    training_seg = DATA_FILES[0]
+def create_generator(worker_id=0):
+    """ Creates an iterator that returns data for mongo.
+        Should contain all the dependencies of the brain generator
+        Preprocessing should be applied at this phase 
+        yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
+    training_seg = DATA_FILES[worker_id % len(DATA_FILES)]
     brain_generator = BrainGenerator(
-        DATA_FILES[0],
+        training_seg,
         randomise_res=False,
     )
     print(f"Generator {worker_id}: SynthSeg is using {training_seg}", flush=True)
-    
     while True:
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
-        queue.put((worker_id, time()))
+        yield (img, lab)
         gc.collect()
+
+def run_wirehead_generator(worker_id, queue):
+    brain_generator = create_generator(worker_id)
+    wirehead_generator = WireheadGenerator(
+        generator=brain_generator,
+        config_path=WIREHEAD_CONFIG
+    )
+    
+    for item in wirehead_generator.run_generator():
+        queue.put((worker_id, time()))
 
 def log_memory_usage(queue):
     start_time = time()
@@ -69,7 +83,7 @@ if __name__ == "__main__":
     
     processes = []
     for i in range(NUM_GENERATORS):
-        p = multiprocessing.Process(target=create_generator, args=(i, queue))
+        p = multiprocessing.Process(target=run_wirehead_generator, args=(i, queue))
         p.start()
         processes.append(p)
     
