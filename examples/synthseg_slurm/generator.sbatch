@@ -1,5 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=wireheadArmina
+
+#SBATCH --job-name=wirehead
 #SBATCH --nodes=1
 #SBATCH -c 16
 #SBATCH --mem=200g
