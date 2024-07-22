@@ -16,4 +16,4 @@
 conda init bash
 conda activate wirehead
 
-python generatorX8.py
+python generator.py
