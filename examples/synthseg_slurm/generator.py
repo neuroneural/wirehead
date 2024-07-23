@@ -3,10 +3,6 @@ import gc
 import tensorflow as tf
 from nobrainer.processing.brain_generator import BrainGenerator
 from preprocessing import preprocessing_pipe
-import psutil
-import os
-import GPUtil
-import csv
 import multiprocessing
 from queue import Empty
 from wirehead import WireheadManager, WireheadGenerator
