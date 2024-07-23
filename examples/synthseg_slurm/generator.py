@@ -9,7 +9,7 @@ from wirehead import WireheadManager, WireheadGenerator
 
 WIREHEAD_CONFIG = "config.yaml"
 DATA_FILES = ["example.nii.gz"]
-NUM_GENERATORS = 8
+NUM_GENERATORS = 1
 
 physical_devices = tf.config.list_physical_devices("GPU")
 try:
