@@ -6,6 +6,12 @@ This folder contains instructions to install, run and customize [SynthSeg](https
 
 ## Installation 
 
+Make sure that you are in your conda environment before following the instructions below
+```
+conda activate wirehead
+```
+
+
 ### [Install wirehead and mongoDB](https://github.com/neuroneural/wirehead/blob/main/README.md)
 
 Install the SynthSeg generator
