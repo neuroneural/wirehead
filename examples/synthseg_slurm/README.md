@@ -16,9 +16,11 @@ git checkout synthseg
 pip install -e .
 ```
 
+
+All proceeding instructions are executed in examples/synthseg_slurm (where this README lives)
+
 Download an example image
 ```
-cd ..
 curl -L https://github.com/neuroneural/nobrainer-synthseg/raw/master/data/example.nii.gz -o ./example.nii.gz
 ```
 
