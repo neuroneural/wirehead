@@ -10,7 +10,7 @@
 #SBATCH --time=00:15:00
 #SBATCH -p qTRDGPU
 #SBATCH -A psy53c17
-#SBATCH --array=0-999%5
+#SBATCH --array=0-2
 
 
 conda init bash
