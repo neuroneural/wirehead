@@ -24,7 +24,14 @@ Download an example image
 curl -L https://github.com/neuroneural/nobrainer-synthseg/raw/master/data/example.nii.gz -o ./example.nii.gz
 ```
 
-Run the test
+Update the config.yaml to point to your MongoDB instance
+```
+MONGOHOST: << your host name or IP >>       ; example : "localhost", "0.0.0.0"
+DBNAME: << whatever db name you'd prefer >> ; example : "synthseg_slurm"
+```
+
+
+Then, on your login node (that is able to run sbatch jobs), run the test
 ```
 chmod +x test.sh
 ./test.sh
