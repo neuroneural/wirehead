@@ -18,6 +18,7 @@ pip install -e .
 
 Download an example image
 ```
+cd ..
 curl -L https://github.com/neuroneural/nobrainer-synthseg/raw/master/data/example.nii.gz -o ./example.nii.gz
 ```
 
