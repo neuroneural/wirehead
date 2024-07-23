@@ -6,7 +6,7 @@ This folder contains instructions to install, run and customize [SynthSeg](https
 
 ## Installation 
 
-[Install wirehead and mongoDB](https://github.com/neuroneural/wirehead/blob/main/README.md)
+### [Install wirehead and mongoDB](https://github.com/neuroneural/wirehead/blob/main/README.md)
 
 Install the SynthSeg generator
 ```
@@ -16,8 +16,11 @@ git checkout synthseg
 pip install -e .
 ```
 
+---
 
-All proceeding instructions are executed in examples/synthseg_slurm (where this README lives)
+### Testing the slurm jobs
+
+All instructions below are executed in examples/synthseg_slurm (where this README lives)
 
 Download an example image
 ```
@@ -36,6 +39,8 @@ Then, on your login node (that is able to run sbatch jobs), run the test
 chmod +x test.sh
 ./test.sh
 ```
+
+---
 
 ## Synthseg specifics
 
