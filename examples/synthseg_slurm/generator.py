@@ -9,7 +9,7 @@ from wirehead import WireheadManager, WireheadGenerator
 
 WIREHEAD_CONFIG = "config.yaml"
 DATA_FILES = ["example.nii.gz"]
-NUM_GENERATORS = 8
+NUM_GENERATORS = 1
 
 physical_devices = tf.config.list_physical_devices("GPU")
 try:
@@ -30,6 +30,7 @@ def create_generator(worker_id=0):
     print(f"Generator {worker_id}: SynthSeg is using {training_seg}", flush=True)
     while True:
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
+        # np.save here if you want to see your outputs
         yield (img, lab)
         gc.collect()
 
