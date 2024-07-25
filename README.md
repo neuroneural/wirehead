@@ -57,7 +57,7 @@ brew services start mongodb-community@7.0
 ```
 
 ```bash
-# Run MongoDB
+# Stop MongoDB
 brew services stop mongodb-community@7.0
 ```
 
