@@ -112,10 +112,10 @@ class WireheadGenerator():
         data = next(self.generator)
         # 1. Get the correct index for this current sample
         index = self.get_current_idx()
-        # 2. Turn the data into a list of serialized chunks
-        chunks = self.chunkify(data, index)
-        # 3. Push to mongodb + error handling
         if index < self.swap_cap:
+            # 2. Turn the data into a list of serialized chunks
+            chunks = self.chunkify(data, index)
+            # 3. Push to mongodb + error handling
             self.push_chunks(chunks)
 
     def run_generator(self):
