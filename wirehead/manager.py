@@ -37,30 +37,22 @@ class WireheadManager():
         self.collectionr = config.get("READ_COLLECTION") + ".bin"
         self.collectionc = config.get("COUNTER_COLLECTION")
         self.collectiont = config.get("TEMP_COLLECTION") + ".bin"
-
-    def run_manager(self):
-        """
-        Initializes the database manager, swaps and cleans the database whenever swap_cap is hit.
-        """
-        print("Manager: Initialized")
-        self.db["status"].insert_one({"swapped": False})
-        self.reset_counter_and_collection()
-        generated = 0
-        while True:
-            generated = self.watch_and_swap(generated)
-
+    
     def verify_collection_integrity(self, collection):
         """
         Verifies collection contains contiguous elements with id 0..swap_cap
         """
         unique_ids_count = len(collection.distinct("id"))
-        assert (
-            unique_ids_count == self.swap_cap
-        ), f"Manager: Expected {self.swap_cap} unique ids, found {unique_ids_count}"
+        if unique_ids_count != self.swap_cap: 
+            print(f"Manager: Expected {self.swap_cap} unique ids, found {unique_ids_count}")
+            return False
         expected_ids_set = set(range(self.swap_cap))
         actual_ids_set = set(collection.distinct("id"))
-        assert (expected_ids_set == actual_ids_set
-                ), "Manager: The ids aren't continuous from 0 to self.swap_cap - 1"
+        if expected_ids_set != actual_ids_set:
+            print("Manager: The ids aren't continuous from 0 to self.swap_cap - 1")
+            return False
+        # If all checks pass 
+        return True
 
     def reset_counter_and_collection(self):
         """
@@ -87,10 +79,9 @@ class WireheadManager():
         Deletes old write collection
         Maintains data integrity in between
         """
-        time.sleep(2)    # Buffer for incomplete ops
+        time.sleep(10)    # Buffer for incomplete ops
         generated += self.swap_cap
-        print("\n----swap----")
-        print(f"Manager: Generated samples so far {generated}")
+        print(f"Manager: Time: {time.time()} Generated samples so far {generated}")
         self.db[self.collectionw].rename(self.collectiont, dropTarget=True)
         # Now atomically reset the counter to 0 and delete whatever records
         # may have been written between the execution of the previous line
@@ -102,16 +93,31 @@ class WireheadManager():
             }})
         # Print the result of the deletion
         print(f"Manager: Documents deleted: {result.deleted_count}")
-        self.verify_collection_integrity(self.db[self.collectiont])
-        self.db[self.collectiont].rename(self.collectionr, dropTarget=True)
-        self.db["status"].insert_one({"swapped": True})
-        return generated
+        if self.verify_collection_integrity(self.db[self.collectiont]):
+            self.db[self.collectiont].rename(self.collectionr, dropTarget=True)
+            self.db["status"].insert_one({"swapped": True})
+            return generated
+        else: 
+            print("Manager: Corrupted collection detected, skipping swap")
+            return generated
 
     def watch_and_swap(self, generated):
         """
         Watch the write collection and swap when full
         """
         counter_doc = self.db[self.collectionc].find_one({"_id": "uniqueFieldCounter"})
-        if counter_doc["sequence_value"] >= self.swap_cap:    # watch
+        if counter_doc["sequence_value"] > self.swap_cap:    # watch
             return self.swap(generated)    # swap
         return generated
+
+    def run_manager(self):
+        """
+        Initializes the database manager, swaps and cleans the database whenever swap_cap is hit.
+        """
+        print("Manager: Initialized")
+        self.db["status"].insert_one({"swapped": False})
+        self.reset_counter_and_collection()
+        generated = 0
+        while True:
+            generated = self.watch_and_swap(generated)
+
