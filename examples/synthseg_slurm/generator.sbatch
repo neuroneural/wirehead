@@ -13,7 +13,8 @@
 #SBATCH --array=0-2
 
 
-conda init bash
-conda activate wirehead
+#conda init bash
+#conda activate wirehead
+source /trdapps/linux-x86_64/envs/plis_conda/bin/activate /trdapps/linux-x86_64/envs/plis_conda/envs/wirehead
 
 python generator.py
