@@ -37,6 +37,7 @@ class WireheadManager:
         self.collectionr = config.get("READ_COLLECTION") + ".bin"
         self.collectionc = config.get("COUNTER_COLLECTION")
         self.collectiont = config.get("TEMP_COLLECTION") + ".bin"
+        self.expected_ids_set = set(range(self.swap_cap))
 
     def verify_collection_integrity(self, collection):
         """
@@ -48,9 +49,9 @@ class WireheadManager:
                 f"Manager: Expected {self.swap_cap} unique ids, found {unique_ids_count}"
             )
             return False
-        expected_ids_set = set(range(self.swap_cap))
+        # can be factored to make faster (use numpy?)
         actual_ids_set = set(collection.distinct("id"))
-        if expected_ids_set != actual_ids_set:
+        if self.expected_ids_set != actual_ids_set:
             print(
                 "Manager: The ids aren't continuous from 0 to self.swap_cap - 1"
             )
@@ -83,7 +84,7 @@ class WireheadManager:
         Deletes old write collection
         Maintains data integrity in between
         """
-        time.sleep(10)  # Buffer for incomplete ops
+        time.sleep(2)  # Buffer for incomplete ops
         generated += self.swap_cap
         print(
             f"Manager: Time: {time.time()} Generated samples so far {generated}"
