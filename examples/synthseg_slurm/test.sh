@@ -34,7 +34,7 @@ echo "Swap occurred, ready to train whenever!"
 sleep 1
 
 # Terminate all processes (including the SLURM job)
-python clean.py
+# python clean.py
 terminate_processes
 
 # Exit the script

@@ -13,8 +13,7 @@
 
 echo "This is a wirehead job on $(hostname)"
 
-#conda init bash
-#conda activate wirehead
-source /trdapps/linux-x86_64/envs/plis_conda/bin/activate /trdapps/linux-x86_64/envs/plis_conda/envs/wirehead
+conda init bash
+conda activate wirehead
 
 python manager.py
