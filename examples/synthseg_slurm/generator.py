@@ -1,7 +1,6 @@
 from time import time
 import gc
 import os
-import tensorflow as tf
 from nobrainer.processing.brain_generator import BrainGenerator
 from preprocessing import preprocessing_pipe
 import argparse
@@ -10,6 +9,8 @@ from wirehead import WireheadManager, WireheadGenerator
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 os.environ["TF_AUTOGRAPH_VERBOSITY"] = "0"
+
+import tensorflow as tf
 
 WIREHEAD_CONFIG = "config.yaml"
 DATA_FILES = ["example.nii.gz"]
