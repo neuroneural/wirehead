@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=wireheadsergey
+#SBATCH --job-name=wirehead
 #SBATCH --nodes=1
 #SBATCH -c 16
 #SBATCH --mem=50g
@@ -15,6 +15,6 @@
 echo "This is a wirehead job on $(hostname)"
 
 conda init
-conda activate wirehead_dev
+conda activate wirehead
 
 python worker.py
