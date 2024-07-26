@@ -13,8 +13,15 @@
 #SBATCH --array=0-2
 
 
-#conda init bash
-#conda activate wirehead
-source /trdapps/linux-x86_64/envs/plis_conda/bin/activate /trdapps/linux-x86_64/envs/plis_conda/envs/wirehead
+NUM_GENERATORS=1
+conda init bash
+conda activate wirehead
 
-python generator.py
+for i in $(seq 0 $((NUM_GENERATORS-1))); do
+  python generator_lone.py $NUM_GENERATORS $i &
+  pids+=($!)
+done
+
+for pid in "${pids[@]}"; do
+  wait $pid
+done
