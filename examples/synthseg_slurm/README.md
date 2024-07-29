@@ -6,25 +6,47 @@ This folder contains instructions to install, run and customize [SynthSeg](https
 
 ## Installation 
 
-[Install wirehead and mongoDB](https://github.com/neuroneural/wirehead/blob/main/README.md)
+Make sure that you are in your conda environment before following the instructions below
+```
+conda activate wirehead
+```
+
+
+### [Install wirehead and mongoDB](https://github.com/neuroneural/wirehead/blob/main/README.md)
 
 Install the SynthSeg generator
 ```
-git clone git@github.com:neuroneural/nobrainer-synthseg.git
-cd nobrainer-synthseg
+git clone https://github.com/neuronets/nobrainer.git
+cd nobrainer
+git checkout synthseg
 pip install -e .
 ```
+
+---
+
+### Testing the slurm jobs
+
+All instructions below are executed in examples/synthseg_slurm (where this README lives)
 
 Download an example image
 ```
 curl -L https://github.com/neuroneural/nobrainer-synthseg/raw/master/data/example.nii.gz -o ./example.nii.gz
 ```
 
-Run the test
+Update the config.yaml to point to your MongoDB instance
+```
+MONGOHOST: << your host name or IP >>       ; example : "localhost", "0.0.0.0"
+DBNAME: << whatever db name you'd prefer >> ; example : "synthseg_slurm"
+```
+
+
+Then, on your login node (that is able to run sbatch jobs), run the test
 ```
 chmod +x test.sh
 ./test.sh
 ```
+
+---
 
 ## Synthseg specifics
 
