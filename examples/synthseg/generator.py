@@ -1,11 +1,16 @@
 from time import time
 import gc
-import tensorflow as tf
+import os
 from nobrainer.processing.brain_generator import BrainGenerator
 from preprocessing import preprocessing_pipe
-import multiprocessing
-from queue import Empty
+import argparse
 from wirehead import WireheadManager, WireheadGenerator
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+os.environ["TF_AUTOGRAPH_VERBOSITY"] = "0"
+
+import tensorflow as tf
 
 WIREHEAD_CONFIG = "config.yaml"
 DATA_FILES = ["example.nii.gz"]
@@ -17,46 +22,28 @@ try:
 except:
     pass
 
-def create_generator(worker_id=0):
-    """ Creates an iterator that returns data for mongo.
-        Should contain all the dependencies of the brain generator
-        Preprocessing should be applied at this phase 
-        yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str)) """
-    training_seg = DATA_FILES[worker_id % len(DATA_FILES)]
+
+def create_generator(file_id=0):
+    """Creates an iterator that returns data for mongo.
+    Should contain all the dependencies of the brain generator
+    Preprocessing should be applied at this phase
+    yields : tuple ( data: tuple ( data_idx: torch.tensor, ) , data_kinds : tuple ( kind : str))
+    """
+    training_seg = DATA_FILES[file_id]
     brain_generator = BrainGenerator(
         training_seg,
         randomise_res=False,
     )
-    print(f"Generator {worker_id}: SynthSeg is using {training_seg}", flush=True)
+    print(f"Generator {file_id}: SynthSeg is using {training_seg}", flush=True)
     while True:
         img, lab = preprocessing_pipe(brain_generator.generate_brain())
         yield (img, lab)
         gc.collect()
 
-def run_wirehead_generator(worker_id, queue):
-    brain_generator = create_generator(worker_id)
-    wirehead_generator = WireheadGenerator(
-        generator=brain_generator,
-        config_path=WIREHEAD_CONFIG
-    )
-    
-    for item in wirehead_generator.run_generator():
-        queue.put((worker_id, time()))
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method('spawn')
-    queue = multiprocessing.Queue()
-    
-    processes = []
-    for i in range(NUM_GENERATORS):
-        p = multiprocessing.Process(target=run_wirehead_generator, args=(i, queue))
-        p.start()
-        processes.append(p)
-    
-    try:
-        for p in processes:
-            p.join()
-    except KeyboardInterrupt:
-        print("Stopping generators...")
-        for p in processes:
-            p.terminate()
+    brain_generator = create_generator()
+    wirehead_generator = WireheadGenerator(
+        generator=brain_generator, config_path=WIREHEAD_CONFIG
+    )
+    wirehead_generator.run_generator()
