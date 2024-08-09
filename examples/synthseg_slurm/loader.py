@@ -1,15 +1,15 @@
 import sys
 
 import torch
-from wirehead import MongoheadDataset
+from wirehead import mongoheaddataset
 
-dataset = MongoheadDataset(config_path = "config.yaml")
+dataset = mongoheaddataset(config_path = "config.yaml")
 
 idx = [0] 
 data = dataset[idx]
 sample, label = data[0]['input'], data[0]['label']
 print(sample.shape)
 print(label.shape)
-print("Fetched successfully")
+print("fetched successfully")
 if sample.shape == label.shape and sample.shape == (256,256,256):
-    print("Test passed")
+    print("test passed")
