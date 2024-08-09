@@ -128,7 +128,10 @@ class WireheadSuperGenerator:
             # 3. Push to mongodb + error handling
             self.push_chunks(branded_chunks)
         else:
-            self.swap(0)
+            try:
+                self.swap(0)
+            except:
+                pass
 
     def run_generator(self):
         """Initializes and runs a SynthSeg brain generator in a loop,
