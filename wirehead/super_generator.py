@@ -7,6 +7,7 @@ import yaml
 import bson
 import torch
 from pymongo import MongoClient, ReturnDocument, ASCENDING
+from pymongo.errors import OperationFailure, ConnectionFailure
 
 class WireheadSuperGenerator:
     """
@@ -14,14 +15,54 @@ class WireheadSuperGenerator:
     and manager runtimes.
     """
 
-    def __init__(self, generator, config_path, n_samples=1000):
+    def __init__(self, generator, config_path, n_samples=int(1e9)):
         if config_path is None or os.path.exists(config_path) is False:
             print("No valid config specified, exiting")
             return
         self.load_from_yaml(config_path)
         self.generator = generator
         self.n_samples = n_samples
-        self.reset_counter_and_collection()
+        self.check_and_reinitialize_database()
+        self.delete_temp()
+
+    def initialize_database(self):
+        """Initialize the database with required collections"""
+        # Initialize counters collection
+        counters_collection = self.db[self.collectionc]
+        counters_collection.insert_one({"_id": "uniqueFieldCounter", "sequence_value": 0})
+        print(f"Initialized {self.collectionc} with sequence_value: 0")
+
+        # Create write collection
+        write_collection = self.db[self.collectionw]
+        write_collection.create_index([("id", ASCENDING)], background=True)
+        print(f"Created empty {self.collectionw} collection with index on 'id'")
+
+        # Create status collection (empty)
+        status_collection = self.db['status']
+        print("Created empty status collection")
+
+    def check_and_reinitialize_database(self):
+        """Check the counters collection and reinitialize the database if the check fails"""
+        counters_collection = self.db[self.collectionc]
+        
+        try:
+            # Try to fetch the counter
+            counter_doc = counters_collection.find_one({"_id": "uniqueFieldCounter"})
+            
+            if counter_doc is None:
+                raise OperationFailure("Counter document not found")
+            
+        except OperationFailure:
+            print("Counter fetch failed. Reinitializing database...")
+            
+            # Drop all collections in the database
+            for collection_name in self.db.list_collection_names():
+                self.db[collection_name].drop()
+            
+            # Reinitialize the database
+            self.initialize_database()
+            
+            print("Database reinitialized successfully.")
 
     def load_from_yaml(self, config_path):
         """Loads manager configs from config_path"""
@@ -94,15 +135,17 @@ class WireheadSuperGenerator:
             )
         return chunks
 
+
     def push_chunks(self, chunks):
-        """Pushes chunkified tensors to mongodb, with error handling"""
+        """Pushes chunkified tensors to mongodb, with error handling and ping"""
         collection_bin = self.db[self.collectionw]
         try:
+            # Ping the write database with a small operation
+            collection_bin.find_one({}, {"_id": 1})
+            # If ping succeeds, insert the chunks
             collection_bin.insert_many(chunks)
-        except Exception as exception:
-            print(
-                f"Generator: An error occurred: {exception}, are you swapping?"
-            )
+        except (OperationFailure, ConnectionFailure) as exception:
+            print(f"Generator: An error occurred: {exception}, write collection might not exist or there's a connection issue")
             time.sleep(1)
 
     def get_current_idx(self):
@@ -113,6 +156,8 @@ class WireheadSuperGenerator:
             {"$inc": {"sequence_value": 1}},
             return_document=ReturnDocument.BEFORE,
         )
+        if counter_doc == None:
+            return 0
         return counter_doc["sequence_value"]
 
     def generate_and_insert(self):
@@ -124,14 +169,13 @@ class WireheadSuperGenerator:
         # 2. Get the correct index for this current sample
         index = self.get_current_idx()
         if index < self.swap_cap:
+            print(index, self.swap_cap)
             branded_chunks = [{**d, "id": index} for d in chunks]
             # 3. Push to mongodb + error handling
             self.push_chunks(branded_chunks)
         else:
-            try:
-                self.swap(0)
-            except:
-                pass
+            self.watch_and_swap(0)
+            self.reset_counter_and_collection()
 
     def run_generator(self):
         """Initializes and runs a SynthSeg brain generator in a loop,
@@ -179,6 +223,10 @@ class WireheadSuperGenerator:
         )
         dbw.delete_many({})
         dbw.create_index([("id", ASCENDING)], background=True)
+    
+    def delete_temp(self):
+        dbt = self.db[self.collectiont]
+        dbt.drop()
 
     def swap(self, generated):
         """
@@ -188,26 +236,37 @@ class WireheadSuperGenerator:
         """
         time.sleep(2)  # Buffer for incomplete ops
         generated += self.swap_cap
-        print(
-            f"Manager: Time: {time.time()} Generated samples so far {generated}"
-        )
-        self.db[self.collectionw].rename(self.collectiont, dropTarget=True)
-        # Now atomically reset the counter to 0 and delete whatever records
-        # may have been written between the execution of the previous line
-        # and the next
-        self.reset_counter_and_collection()  # this is atomic
-        result = self.db[self.collectiont].delete_many(
-            {"id": {"$gt": self.swap_cap - 1}}
-        )
-        # Print the result of the deletion
-        print(f"Manager: Documents deleted: {result.deleted_count}")
+        try:
+            self.db[self.collectionw].rename(self.collectiont, dropTarget=False)
+            
+            # Delete the write collection immediately after renaming
+            self.db[self.collectionw].drop()
+            
+        except OperationFailure:
+            print("Manager:Other manager swapping, swap skipped")
+            return 
+
+
+        result = self.db[self.collectiont].delete_many({"id": {"$gt": self.swap_cap - 1}})
+        
         if self.verify_collection_integrity(self.db[self.collectiont]):
             self.db[self.collectiont].rename(self.collectionr, dropTarget=True)
             self.db["status"].insert_one({"swapped": True})
-            return generated
+
+            print(f"Manager: Time: {time.time()} Generated samples so far {generated}")
+
+            print(f"Manager: Documents deleted: {result.deleted_count}")
+            print("====Manager: Swap success!===")
         else:
-            print("Manager: Corrupted collection detected, skipping swap")
-            return generated
+            print("Manager: Corrupted collection detected, swapskipped")
+            self.db[self.collectionw].drop()
+            self.check_and_reinitialize_database()
+        
+        
+        # Create the write collection again
+        self.db.create_collection(self.collectionw)
+        self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
+        self.delete_temp()
 
     def watch_and_swap(self, generated):
         """
@@ -216,17 +275,7 @@ class WireheadSuperGenerator:
         counter_doc = self.db[self.collectionc].find_one(
             {"_id": "uniqueFieldCounter"}
         )
-        if counter_doc["sequence_value"] > self.swap_cap:  # watch
+        idx = 0 if counter_doc == None else counter_doc["sequence_value"]
+        if idx >= self.swap_cap:  # watch
             return self.swap(generated)  # swap
         return generated
-
-    def run_manager(self):
-        """
-        Initializes the database manager, swaps and cleans the database whenever swap_cap is hit.
-        """
-        print("Manager: Initialized")         
-        self.db["status"].insert_one({"swapped": False}) # should go into clean
-        self.reset_counter_and_collection()             # should go into clean
-        generated = 0                                   # should go into clean
-        while True:
-            generated = self.watch_and_swap(generated)
