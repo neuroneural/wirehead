@@ -32,7 +32,6 @@ def create_generator(file_id=0):
     training_seg = DATA_FILES[file_id]
     brain_generator = BrainGenerator(
         training_seg,
-        randomise_res=False,
     )
     print(f"Generator {file_id}: SynthSeg is using {training_seg}", flush=True)
     while True:

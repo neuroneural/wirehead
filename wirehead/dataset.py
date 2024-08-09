@@ -8,7 +8,7 @@ import yaml
 import torch
 from torch.utils.data import Dataset
 from pymongo import MongoClient
-from pymongo.errors import OperationFailure, OperationFailure
+from pymongo.errors import OperationFailure
 
 
 def unit_interval_normalize(img):
