@@ -192,19 +192,21 @@ class WireheadGenerator:
 
     def reset_counter_and_write(self):
         """
-        Resets the counter and write collection
+        Resets the counter and write collection only if they don't exist.
+        If either collection exists, the function does nothing.
         """
         dbw = self.db[self.collectionw]
         dbc = self.db[self.collectionc]
-        dbw.delete_many({})  # wipe the write collection
-        # Reset the counter to zero
-        _result = dbc.update_one(
+
+        dbc.update_one(
             {"_id": "uniqueFieldCounter"},  # Query part: the document to match
             {
                 "$set": {"sequence_value": 0}
             },  # Update part: what to set if the document is matched/found
             upsert=True,
         )
+        if self.collectionw in self.db.list_collection_names(): return  # Do nothing if collection exists
+
         dbw.delete_many({})
         dbw.create_index([("id", ASCENDING)], background=True)
     
@@ -229,7 +231,8 @@ class WireheadGenerator:
             """
             Implicit mutex # 2.a lock create
             := Deletes the write collection
-            := Prevents any writes or increments from happening.
+            := The nonexistence of the write collection can act as a lock
+            := which prevents any writes or increments from happening.
             """
             self.db[self.collectionw].drop()
             
