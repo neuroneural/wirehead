@@ -1,5 +1,10 @@
-from wirehead.dataset import MongoheadDataset
-from wirehead.dataset import MongoTupleheadDataset
-from wirehead.manager import WireheadManager
-from wirehead.generator import WireheadGenerator
-from wirehead.super_generator import WireheadSuperGenerator
+# __init__.py
+
+from .dataset import MongoheadDataset, MongoTupleheadDataset
+from .generator import WireheadGenerator
+
+__all__ = [
+    'MongoheadDataset',
+    'MongoTupleheadDataset',
+    'WireheadGenerator'
+]

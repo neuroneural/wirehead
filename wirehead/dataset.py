@@ -161,13 +161,14 @@ class MongoheadDataset(Dataset):
                     except (
                             EOFError,
                             OperationFailure,
+                            RuntimeError,
                     ) as exception:    # Specifically catching EOFError
                         if self.keeptrying:
                             if verbose:
                                 print(
                                     f"EOFError caught. Retrying {attempt+1}/{retry_count}"
                                 )
-                            time.sleep(1)
+                            time.sleep(2)
                             continue
                         else:
                             raise exception
@@ -177,7 +178,7 @@ class MongoheadDataset(Dataset):
 
         return decorator
 
-    @retry_on_eof_error(retry_count=3, verbose=True)
+    @retry_on_eof_error(retry_count=10, verbose=True)
     def __getitem__(self, batch):
         """
         Fetch all samples for ids in the batch and where 'kind' is either
@@ -221,7 +222,7 @@ class MongoTupleheadDataset(MongoheadDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    @MongoheadDataset.retry_on_eof_error(retry_count=3, verbose=True)
+    @MongoheadDataset.retry_on_eof_error(retry_count=10, verbose=True)
     def __getitem__(self, batch):
         """
         Fetch all samples for ids in the batch and return as tuples
