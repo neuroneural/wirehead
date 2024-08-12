@@ -3,7 +3,7 @@
 import io
 import os
 import time
-from typing import Any, Generator, Optional
+from typing import Any, Generator, Optional, Tuple
 
 import yaml
 import bson
@@ -17,13 +17,13 @@ class WireheadGenerator:
     Wirehead generator class, which manages writes to mongodb.
 
     generator   : generator function, yields tuples of data
-    config path : path to wirehead config file
+    config path : path to wirehead config file. default = "config.yaml"
     n_samples   : number of samples to generate. default = 1 billion
     """
 
     def __init__(self,
-                 generator,
-                 config_path: str,
+                 generator: Generator[Tuple[Any, ...], None, None],
+                 config_path: str = "config.yaml",
                  n_samples: int = int(1e9)):
         if config_path is None or os.path.exists(config_path) is False:
             print("No valid config specified, exiting")
@@ -80,16 +80,14 @@ class WireheadGenerator:
             upsert=True
         ) # update comnpleted index
 
+    def reset_write(self):
+        if self.ping(self.collectionw):
+            self.db.create_collection(self.collectionw)
+            self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
+
     def reset_counter_and_write(self):
-        """
-        Resets the counter and write collection only if they don't exist.
-        """
         self.reset_counter()
-        dbw = self.db[self.collectionw]
-        if self.collectionw in self.db.list_collection_names():
-            return  # Do nothing if collection exists
-        dbw.delete_many({})
-        dbw.create_index([("id", ASCENDING)], background=True)
+        self.reset_write()
 
     def reinitialize_database(self):
         """
@@ -111,7 +109,103 @@ class WireheadGenerator:
             print(f"An error occurred while creating the index: {str(e)}")
 
 
-    def get_idx(self, field="started", inc: int = 0): # other is "completed"
+
+    def temp_is_valid(self):
+        """
+        Verifies temp collection contains contiguous elements with id 0..swap_cap
+        """
+        temp_ids = self.db[self.collectiont].distinct("id")
+        """ Checks if there are enough elements """
+        unique_ids_count = len(temp_ids)
+        if unique_ids_count != self.swap_cap:
+            print(
+                f"Generator: Expected {self.swap_cap} ids, found {unique_ids_count}"
+            )
+            return False
+        """ Checks for contiguous ids """
+        actual_ids_set = set(temp_ids)
+        if self.expected_ids_set != actual_ids_set:
+            print(
+                "Generator: Ids aren't continuous from 0 to self.swap_cap - 1"
+            )
+            return False
+        # If all checks pass
+        return True
+
+    
+    def swap(self):
+        """
+        Moves data from write collection to read collection
+        Deletes old write collection
+        Maintains data integrity in between
+        """
+        try:
+            self.db[self.collectionw].rename(self.collectiont, dropTarget=False)
+            """
+            Implicit mutex # 1.a lock create
+            := Deletes the write collection
+            := The nonexistence of the write collection can act as a lock
+            := which prevents any writes or increments from happening.
+            """
+            self.db[self.collectionw].drop()
+
+            result = self.db[self.collectiont].delete_many({"id": {"$gt": self.swap_cap - 1}})
+            if self.temp_is_valid():
+                self.db[self.collectiont].rename(self.collectionr, dropTarget=True)
+                self.db["status"].insert_one({"swapped": True})
+                """ Implicit mutex 1.b release """
+                self.reset_write()
+
+                print(f"Generator: Time: {time.time()}")
+                print(f"Generator: Documents deleted: {result.deleted_count}")
+                print("====Generator: Swap success!===============")
+
+            dbt = self.db[self.collectiont]
+            dbt.drop()
+            
+        except OperationFailure:
+            print("Generator: Other manager swapping, swap skipped")
+            return 
+
+
+    def attempt_swap(self):
+        """
+        Watch the write collection and swap when full, with atomic mutex
+        """
+        counter_doc = self.db[self.collectionc].find_one({"_id": "completed"})
+        idx = 0 if counter_doc is None else counter_doc["sequence_value"]
+        # Don't attempt a swap if less than swap_cap
+        if idx < self.swap_cap:
+            return
+        # Attempt the swap
+        try:
+            lock_doc = self.db[self.collectionc].find_one_and_update(
+                {"_id": "swap_lock", "locked": False},
+                {"$set": {"locked": True, "timestamp": time.time()}},
+                upsert=True,
+                return_document=ReturnDocument.AFTER
+            )
+        except:
+            time.sleep(0.1)
+            print("Swap is locked, another instance is performing the swap operation.")
+            return
+        
+        if lock_doc and lock_doc["locked"]:
+            try:
+                self.swap()                     # swap
+                self.reset_counter_and_write()  # cleanup
+
+            finally:
+                # Release the lock
+                self.db[self.collectionc].update_one(
+                    {"_id": "swap_lock"},
+                    {"$set": {"locked": False}}
+                )
+        else:
+            print("Failed to acquire lock, another instance is performing the swap operation.")
+
+
+    def get_idx(self, field="started", inc: int = 0): # other field is "completed"
         """Get current index of sample in write collection"""
         dbc = self.db[self.collectionc]
         counter_doc = dbc.find_one_and_update(
@@ -176,7 +270,7 @@ class WireheadGenerator:
         return chunks
 
 
-    def push_chunks(self, chunks):
+    def push(self, chunks):
         """
         Pushes chunkified tensors to mongodb, with error handling and ping
         """
@@ -199,127 +293,7 @@ class WireheadGenerator:
             time.sleep(1)
 
 
-    def temp_is_valid(self):
-        """
-        Verifies temp collection contains contiguous elements with id 0..swap_cap
-        """
-        temp_ids = self.db[self.collectiont].distinct("id")
-        unique_ids_count = len(temp_ids)
-        if unique_ids_count != self.swap_cap:
-            print(
-                f"Generator: Expected {self.swap_cap} ids, found {unique_ids_count}"
-            )
-            return False
-        actual_ids_set = set(temp_ids)
-        if self.expected_ids_set != actual_ids_set:
-            print(
-                "Generator: Ids aren't continuous from 0 to self.swap_cap - 1"
-            )
-            return False
-        # If all checks pass
-        return True
-
-    
-    def swap(self):
-        """
-        Moves data from write collection to read collection
-        Deletes old write collection
-        Maintains data integrity in between
-        """
-        # time.sleep(2)  # Buffer for incomplete ops
-        try:
-            """
-            Implicit mutex # 3.a lock create
-            := Creates the temp collection
-            := Prevents any swap operation from happening until 3.b
-            := Explanation: this works because rename will raise an OperationFailure
-                with dropTarget=False will raise an OperationFailure
-                https://www.mongodb.com/docs/manual/reference/method/db.collection.renameCollection/
-            """
-            self.db[self.collectionw].rename(self.collectiont, dropTarget=False)
-            """
-            Implicit mutex # 2.a lock create
-            := Deletes the write collection
-            := The nonexistence of the write collection can act as a lock
-            := which prevents any writes or increments from happening.
-            """
-            self.db[self.collectionw].drop()
-            
-        except OperationFailure:
-            print("Generator: Other manager swapping, swap skipped")
-            return 
-
-        result = self.db[self.collectiont].delete_many({"id": {"$gt": self.swap_cap - 1}})
-        
-        if self.temp_is_valid():
-            self.db[self.collectiont].rename(self.collectionr, dropTarget=True)
-            self.db["status"].insert_one({"swapped": True})
-            write_collection = self.db[self.collectionw]
-            ping = write_collection.find_one()
-            if ping is not None:
-                """
-                Implicit mutex # 2 lock release
-                := Create the write collection again
-                """
-                self.db.create_collection(self.collectionw)
-                self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
-
-            print(f"Generator: Time: {time.time()}")
-            print(f"Generator: Documents deleted: {result.deleted_count}")
-            print("====Generator: Swap success!===")
-
-        """
-        Implicit mutex # 3.b lock release
-        := Deletes the temp collection
-        := Swaps can happen again after this
-        """
-        dbt = self.db[self.collectiont]
-        dbt.drop()
-
-
-    def attempt_swap(self):
-        """
-        Watch the write collection and swap when full, with atomic mutex
-        """
-        counter_doc = self.db[self.collectionc].find_one({"_id": "completed"})
-        idx = 0 if counter_doc is None else counter_doc["sequence_value"]
-        if idx >= self.swap_cap:
-            # Attempt to acquire the lock
-            try:
-                lock_doc = self.db[self.collectionc].find_one_and_update(
-                    {"_id": "swap_lock", "locked": False},
-                    {"$set": {"locked": True, "timestamp": time.time()}},
-                    upsert=True,
-                    return_document=ReturnDocument.AFTER
-                )
-            except:
-                time.sleep(0.1)
-                print("Swap is locked, another instance is performing the swap operation.")
-                return
-            
-            if lock_doc and lock_doc["locked"]:
-                try:
-                    # Critical section
-                    start = time.time()
-                    self.get_idx(field="completed", inc=1)  # lock the mutex
-                    self.swap() # swap
-                    
-                    # Implicit mutex # 1.b lock release
-                    # Resets the index inside the counter collection
-                    # Allows pushes to happen again
-                    self.reset_counter_and_write()
-
-                finally:
-                    # Release the lock
-                    self.db[self.collectionc].update_one(
-                        {"_id": "swap_lock"},
-                        {"$set": {"locked": False}}
-                    )
-            else:
-                print("Failed to acquire lock, another instance is performing the swap operation.")
-
-
-    def insert(self):
+    def attempt_push(self):
         """Fetch from generator and inserts into mongodb"""
         # 0. Fetch data from generator
         data = next(self.generator)
@@ -337,12 +311,11 @@ class WireheadGenerator:
             self.reinitialize_database()
 
 
-    def run_generator(self):
+    def run(self):
         """
-        Initializes and runs a SynthSeg brain generator in a loop,
-        preprocesses, then pushes to mongoDB
+        Attempts to insert (or) swap in a loop
         """
         print("Generator: Initialized")
         n_samples = self.n_samples
         for _ in range(n_samples):
-            self.insert()
+            self.attempt_push()
