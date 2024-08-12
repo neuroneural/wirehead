@@ -1,16 +1,16 @@
-""" Wirehead Manager + Generator Class """
+""" Wirehead Generator Class """
 
 import io
 import os
 import time
+from typing import Any, Generator, Optional
+
 import yaml
 import bson
+
 import torch
 from pymongo import MongoClient, ReturnDocument, ASCENDING
 from pymongo.errors import OperationFailure, ConnectionFailure
-
-
-NUM_GENERATORS = 0
 
 class WireheadGenerator:
     """
@@ -21,21 +21,24 @@ class WireheadGenerator:
     n_samples   : number of samples to generate. default = 1 billion
     """
 
-    def __init__(self, generator, config_path, n_samples=int(1e9)):
+    def __init__(self,
+                 generator,
+                 config_path: str,
+                 n_samples: int = int(1e9)):
         if config_path is None or os.path.exists(config_path) is False:
             print("No valid config specified, exiting")
             return
-        self.load_from_yaml(config_path)
         self.generator = generator
         self.n_samples = n_samples
-        self.check_and_reinitialize_database() # (use a)
+        self.config_path = config_path
+        self.load_from_yaml()
+        self.reinitialize_database()
 
-
-    def load_from_yaml(self, config_path):
+    def load_from_yaml(self):
         """
-        Loads manager configs from config_path
+        Loads configs from config_path
         """
-        with open(config_path, "r", encoding="utf-8") as file:
+        with open(self.config_path, "r", encoding="utf-8") as file:
             config = yaml.safe_load(file)
         dbname = config.get("DBNAME")
         mongohost = config.get("MONGOHOST")
@@ -53,39 +56,72 @@ class WireheadGenerator:
         self.expected_ids_set = set(range(self.swap_cap))
 
 
-    def check_and_reinitialize_database(self):
+    def ping(self, collection_name: str) -> bool:
+        """ Returns true if collection both exists and is reachable """
+        try:
+            if collection_name not in self.db.list_collection_names():
+                return False
+            self.db[collection_name].find_one({}, {'_id': 1})
+            return True
+        except:
+            return False
+
+
+    def reset_counter(self):
+        counters_collection = self.db[self.collectionc]
+        counters_collection.update_one(
+            {"_id": "started"},
+            {"$set": {"sequence_value": 0}},
+            upsert=True
+        ) # update start index
+        counters_collection.update_one(
+            {"_id": "completed"},
+            {"$set": {"sequence_value": 0}},
+            upsert=True
+        ) # update comnpleted index
+
+    def reset_counter_and_write(self):
+        """
+        Resets the counter and write collection only if they don't exist.
+        """
+        self.reset_counter()
+        dbw = self.db[self.collectionw]
+        if self.collectionw in self.db.list_collection_names():
+            return  # Do nothing if collection exists
+        dbw.delete_many({})
+        dbw.create_index([("id", ASCENDING)], background=True)
+
+    def reinitialize_database(self):
         """
         Check the counters collection and reinitialize the database if the check fails
         """
-        counters_collection = self.db[self.collectionc]
-        try: 
-            """
-            uses the existence of the counter collection to determine whether to initialize the database (a)
-            also happens to work as a method to syncronize the index inside counter collection (b)
-            """
-            counter_doc = counters_collection.find_one({"_id": "uniqueFieldCounter"})
-            if counter_doc is None:
-                raise OperationFailure("Counter document not found")
-
-        except OperationFailure:
-            print("Generator:Counter fetch failed. Reinitializing database...")
-            # Drop all collections except the write collection
-            for collection_name in [self.collectionw, self.collectiont, self.collectionc]:
-                self.db[collection_name].drop()
-            # Reinitialize the database
-            # Initialize counters collection
-            counters_collection = self.db[self.collectionc]
-            counters_collection.insert_one({"_id": "started", "sequence_value": 0})
-            counters_collection.insert_one({"_id": "completed", "sequence_value": 0})
-            print(f"Generator: Initialized {self.collectionc} with sequence_value: 0")
-            # Create write collection
+        # Drop all collections except the write collection
+        for collection_name in [self.collectionw, self.collectiont, self.collectionc]:
+            self.db[collection_name].drop()
+        # Initialize counters collection
+        self.reset_counter()
+        # Create write collection
+        try:
             write_collection = self.db[self.collectionw]
             write_collection.create_index([("id", ASCENDING)], background=True)
-            print(f"Generator: Created empty {self.collectionw} collection with index on 'id'")
             # Create status collection (empty)
             _status_collection = self.db['status']
-            print("Generator: Created empty status collection")
             print("Generator: Database reinitialized successfully.")
+        except Exception as e:
+            print(f"An error occurred while creating the index: {str(e)}")
+
+
+    def get_idx(self, field="started", inc: int = 0): # other is "completed"
+        """Get current index of sample in write collection"""
+        dbc = self.db[self.collectionc]
+        counter_doc = dbc.find_one_and_update(
+            {"_id": field},
+            {"$inc": {"sequence_value": inc}},
+            return_document=ReturnDocument.BEFORE,
+        )
+        if counter_doc is None:
+            return 0
+        return counter_doc["sequence_value"]
 
 
     def chunkify(self, data, index):
@@ -157,81 +193,40 @@ class WireheadGenerator:
             # If ping succeeds, insert the chunks
             collection_bin.insert_many(chunks)
             # If push completes, increment completed counter
-            _completed = self.get_idx(field="completed")
+            _completed = self.get_idx(field="completed", inc=1)
         except (OperationFailure, ConnectionFailure) as exception:
             print(f"Generator: An error occurred: {exception}")
             time.sleep(1)
 
-    def get_idx(self, field="started"): # other is "completed"
-        """Get current index of sample in write collection"""
-        dbc = self.db[self.collectionc]
-        counter_doc = dbc.find_one_and_update(
-            {"_id": field},
-            {"$inc": {"sequence_value": 1}},
-            return_document=ReturnDocument.BEFORE,
-        )
-        if counter_doc is None:
-            return 0
-        return counter_doc["sequence_value"]
 
-
-    def verify_collection_integrity(self, collection):
+    def temp_is_valid(self):
         """
-        Verifies collection contains contiguous elements with id 0..swap_cap
+        Verifies temp collection contains contiguous elements with id 0..swap_cap
         """
-        unique_ids_count = len(collection.distinct("id"))
+        temp_ids = self.db[self.collectiont].distinct("id")
+        unique_ids_count = len(temp_ids)
         if unique_ids_count != self.swap_cap:
             print(
-                f"Generator: Expected {self.swap_cap} unique ids, found {unique_ids_count}, skipping swap"
+                f"Generator: Expected {self.swap_cap} ids, found {unique_ids_count}"
             )
             return False
-        # can be factored to make faster (use numpy?)
-        actual_ids_set = set(collection.distinct("id"))
+        actual_ids_set = set(temp_ids)
         if self.expected_ids_set != actual_ids_set:
             print(
-                "Generator: The ids aren't continuous from 0 to self.swap_cap - 1"
+                "Generator: Ids aren't continuous from 0 to self.swap_cap - 1"
             )
             return False
         # If all checks pass
         return True
 
-
-    def reset_counter_and_write(self):
-        """
-        Resets the counter and write collection only if they don't exist.
-        If either collection exists, the function does nothing.
-        """
-        dbw = self.db[self.collectionw]
-        dbc = self.db[self.collectionc]
-
-        dbc.update_one(
-            {"_id": "started"},  # Query part: the document to match
-            {
-                "$set": {"sequence_value": 0}
-            },  # Update part: what to set if the document is matched/found
-            upsert=True,
-        )
-        dbc.update_one(
-            {"_id": "completed"},  # Query part: the document to match
-            {
-                "$set": {"sequence_value": 0}
-            },  # Update part: what to set if the document is matched/found
-            upsert=True,
-        )
-        if self.collectionw in self.db.list_collection_names():
-            return  # Do nothing if collection exists
-
-        dbw.delete_many({})
-        dbw.create_index([("id", ASCENDING)], background=True)
     
-    def swap(self, generated):
+    def swap(self):
         """
         Moves data from write collection to read collection
         Deletes old write collection
         Maintains data integrity in between
         """
-        time.sleep(2)  # Buffer for incomplete ops
-        generated += self.swap_cap
+        # time.sleep(2)  # Buffer for incomplete ops
         try:
             """
             Implicit mutex # 3.a lock create
@@ -256,7 +251,7 @@ class WireheadGenerator:
 
         result = self.db[self.collectiont].delete_many({"id": {"$gt": self.swap_cap - 1}})
         
-        if self.verify_collection_integrity(self.db[self.collectiont]):
+        if self.temp_is_valid():
             self.db[self.collectiont].rename(self.collectionr, dropTarget=True)
             self.db["status"].insert_one({"swapped": True})
             write_collection = self.db[self.collectionw]
@@ -269,13 +264,10 @@ class WireheadGenerator:
                 self.db.create_collection(self.collectionw)
                 self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
 
-            print(f"Generator: Time: {time.time()} Generated samples so far {generated}")
+            print(f"Generator: Time: {time.time()}")
             print(f"Generator: Documents deleted: {result.deleted_count}")
             print("====Generator: Swap success!===")
 
-        else:
-            self.db[self.collectionw].drop()
-            # self.check_and_reinitialize_database() # (use b)
         """
         Implicit mutex # 3.b lock release
         := Deletes the temp collection
@@ -285,45 +277,64 @@ class WireheadGenerator:
         dbt.drop()
 
 
-    def watch_and_swap(self, generated):
+    def attempt_swap(self):
         """
-        Watch the write collection and swap when full
+        Watch the write collection and swap when full, with atomic mutex
         """
-        counter_doc = self.db[self.collectionc].find_one(
-            {"_id": "completed"}
-        )
+        counter_doc = self.db[self.collectionc].find_one({"_id": "completed"})
         idx = 0 if counter_doc is None else counter_doc["sequence_value"]
-        if idx == self.swap_cap + 1:  # watch
-            _completed = self.get_idx(field="completed")
-            self.swap(generated)  # swap
-            self.reset_counter_and_write()
-            """
-            Implicit mutex # 1.b lock release
-            := Resets the index inside the counter collection
-            := Allows pushes to happen again
-            """
-        return generated
+        if idx >= self.swap_cap:
+            # Attempt to acquire the lock
+            try:
+                lock_doc = self.db[self.collectionc].find_one_and_update(
+                    {"_id": "swap_lock", "locked": False},
+                    {"$set": {"locked": True, "timestamp": time.time()}},
+                    upsert=True,
+                    return_document=ReturnDocument.AFTER
+                )
+            except:
+                time.sleep(0.1)
+                print("Swap is locked, another instance is performing the swap operation.")
+                return
+            
+            if lock_doc and lock_doc["locked"]:
+                try:
+                    # Critical section
+                    start = time.time()
+                    self.get_idx(field="completed", inc=1)  # lock the mutex
+                    self.swap() # swap
+                    
+                    # Implicit mutex # 1.b lock release
+                    # Resets the index inside the counter collection
+                    # Allows pushes to happen again
+                    self.reset_counter_and_write()
 
-    def generate_and_insert(self):
+                finally:
+                    # Release the lock
+                    self.db[self.collectionc].update_one(
+                        {"_id": "swap_lock"},
+                        {"$set": {"locked": False}}
+                    )
+            else:
+                print("Failed to acquire lock, another instance is performing the swap operation.")
+
+
+    def insert(self):
         """Fetch from generator and inserts into mongodb"""
         # 0. Fetch data from generator
         data = next(self.generator)
         # 1. Turn the data into a list of serialized chunks with fake id
         chunks = self.chunkify(data, 0)
         # 2. Get the correct index for this current sample and increment index.
-        # this is atomic
-        index = self.get_idx()
-        """
-        Implicit mutex # 1.a lock create
-        := Prevents pushes to write.bin when index > swap_cap
-        """
-        if index < self.swap_cap + 1:
-            print(index, self.swap_cap)
-            branded_chunks = [{**d, "id": index} for d in chunks]
-            # 3. Push to mongodb + error handling
+        index = self.get_idx(field="started", inc = 1) # this is atomic
+        branded_chunks = [{**d, "id": index} for d in chunks]
+        # 3. Push to mongodb + error handling
+        if index < self.swap_cap:
+            print(f"Pushing index: {index}, with cap: {self.swap_cap}")
             self.push_chunks(branded_chunks)
-        else:
-            self.watch_and_swap(0)
+        self.attempt_swap()
+        if index > self.swap_cap * 2:
+            self.reinitialize_database()
 
 
     def run_generator(self):
@@ -334,4 +345,4 @@ class WireheadGenerator:
         print("Generator: Initialized")
         n_samples = self.n_samples
         for _ in range(n_samples):
-            self.generate_and_insert()
+            self.insert()
