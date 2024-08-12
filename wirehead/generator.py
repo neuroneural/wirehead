@@ -171,7 +171,7 @@ class WireheadGenerator:
 
                 print(f"Generator: Time: {time.time()}")
                 print(f"Generator: Documents deleted: {result.deleted_count}")
-                print("====Generator: Swap success!===============")
+                print("\t====Generator: Swap success!====")
 
             dbt = self.db[self.collectiont]
             dbt.drop()
@@ -190,33 +190,31 @@ class WireheadGenerator:
         # Don't attempt a swap if less than swap_cap
         if idx < self.swap_cap:
             return
-        # Attempt the swap
-        try:
+
+        try: # Attempt to fetch the lock
             lock_doc = self.db[self.collectionc].find_one_and_update(
                 {"_id": "swap_lock", "locked": False},
                 {"$set": {"locked": True, "timestamp": time.time()}},
                 upsert=True,
                 return_document=ReturnDocument.AFTER
             )
+            if lock_doc and lock_doc["locked"]: # Do the swap
+                self.swap()                     # swap
+                self.reset_counter_and_write()  # cleanup
+            else:
+                print("Failed to acquire lock, another instance is performing the swap operation.")
+
         except OperationFailure:
             time.sleep(0.1)
             print("Swap is locked, another instance is performing the swap operation.")
             return
+
+        finally: # Release the lock
+            self.db[self.collectionc].update_one(
+                {"_id": "swap_lock"},
+                {"$set": {"locked": False}}
+            )
         
-        if lock_doc and lock_doc["locked"]:
-            try:
-                self.swap()                     # swap
-                self.reset_counter_and_write()  # cleanup
-
-            finally:
-                # Release the lock
-                self.db[self.collectionc].update_one(
-                    {"_id": "swap_lock"},
-                    {"$set": {"locked": False}}
-                )
-        else:
-            print("Failed to acquire lock, another instance is performing the swap operation.")
-
 
     def chunkify(self, data, index):
         """
