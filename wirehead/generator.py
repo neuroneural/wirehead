@@ -268,6 +268,7 @@ class WireheadGenerator:
                 """
                 self.db.create_collection(self.collectionw)
                 self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
+
             print(f"Generator: Time: {time.time()} Generated samples so far {generated}")
             print(f"Generator: Documents deleted: {result.deleted_count}")
             print("====Generator: Swap success!===")
@@ -292,8 +293,15 @@ class WireheadGenerator:
             {"_id": "completed"}
         )
         idx = 0 if counter_doc is None else counter_doc["sequence_value"]
-        if idx >= self.swap_cap:  # watch
-            return self.swap(generated)  # swap
+        if idx == self.swap_cap + 1:  # watch
+            _completed = self.get_idx(field="completed")
+            self.swap(generated)  # swap
+            self.reset_counter_and_write()
+            """
+            Implicit mutex # 1.b lock release
+            := Resets the index inside the counter collection
+            := Allows pushes to happen again
+            """
         return generated
 
     def generate_and_insert(self):
@@ -309,19 +317,14 @@ class WireheadGenerator:
         Implicit mutex # 1.a lock create
         := Prevents pushes to write.bin when index > swap_cap
         """
-        if index < self.swap_cap + NUM_GENERATORS:
+        if index < self.swap_cap + 1:
             print(index, self.swap_cap)
             branded_chunks = [{**d, "id": index} for d in chunks]
             # 3. Push to mongodb + error handling
             self.push_chunks(branded_chunks)
         else:
             self.watch_and_swap(0)
-            """
-            Implicit mutex # 1.b lock release
-            := Resets the index inside the counter collection
-            := Allows pushes to happen again
-            """
-            self.reset_counter_and_write()
+
 
     def run_generator(self):
         """
