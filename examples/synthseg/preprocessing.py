@@ -1,3 +1,4 @@
+""" Preprocessing functions for generator.py """
 import numpy as np
 
 LABEL_MAP = np.asarray(
