@@ -72,7 +72,8 @@ class WireheadGenerator:
             # Reinitialize the database
             # Initialize counters collection
             counters_collection = self.db[self.collectionc]
-            counters_collection.insert_one({"_id": "uniqueFieldCounter", "sequence_value": 0})
+            counters_collection.insert_one({"_id": "started", "sequence_value": 0})
+            counters_collection.insert_one({"_id": "completed", "sequence_value": 0})
             print(f"Generator: Initialized {self.collectionc} with sequence_value: 0")
             # Create write collection
             write_collection = self.db[self.collectionw]
@@ -152,15 +153,17 @@ class WireheadGenerator:
             collection_bin.find_one({}, {"_id": 1})
             # If ping succeeds, insert the chunks
             collection_bin.insert_many(chunks)
+            # If push completes, increment completed counter
+            _completed = self.get_idx(field="completed")
         except (OperationFailure, ConnectionFailure) as exception:
             print(f"Generator: An error occurred: {exception}")
             time.sleep(1)
 
-    def get_current_idx(self):
+    def get_idx(self, field="started"): # other is "completed"
         """Get current index of sample in write collection"""
         dbc = self.db[self.collectionc]
         counter_doc = dbc.find_one_and_update(
-            {"_id": "uniqueFieldCounter"},
+            {"_id": field},
             {"$inc": {"sequence_value": 1}},
             return_document=ReturnDocument.BEFORE,
         )
@@ -199,13 +202,21 @@ class WireheadGenerator:
         dbc = self.db[self.collectionc]
 
         dbc.update_one(
-            {"_id": "uniqueFieldCounter"},  # Query part: the document to match
+            {"_id": "started"},  # Query part: the document to match
             {
                 "$set": {"sequence_value": 0}
             },  # Update part: what to set if the document is matched/found
             upsert=True,
         )
-        if self.collectionw in self.db.list_collection_names(): return  # Do nothing if collection exists
+        dbc.update_one(
+            {"_id": "completed"},  # Query part: the document to match
+            {
+                "$set": {"sequence_value": 0}
+            },  # Update part: what to set if the document is matched/found
+            upsert=True,
+        )
+        if self.collectionw in self.db.list_collection_names():
+            return  # Do nothing if collection exists
 
         dbw.delete_many({})
         dbw.create_index([("id", ASCENDING)], background=True)
@@ -245,20 +256,21 @@ class WireheadGenerator:
         if self.verify_collection_integrity(self.db[self.collectiont]):
             self.db[self.collectiont].rename(self.collectionr, dropTarget=True)
             self.db["status"].insert_one({"swapped": True})
+            """
+            Implicit mutex # 2 lock release
+            := Create the write collection again
+            """
+            self.db.create_collection(self.collectionw)
+            self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
             print(f"Generator: Time: {time.time()} Generated samples so far {generated}")
             print(f"Generator: Documents deleted: {result.deleted_count}")
             print("====Generator: Swap success!===")
 
         else:
             self.db[self.collectionw].drop()
-            self.check_and_reinitialize_database() # (use b)
+            # self.check_and_reinitialize_database() # (use b)
         
-        """
-        Implicit mutex # 2 lock release
-        := Create the write collection again
-        """
-        self.db.create_collection(self.collectionw)
-        self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
+        
         """
         Implicit mutex # 3.b lock release
         := Deletes the temp collection
@@ -273,7 +285,7 @@ class WireheadGenerator:
         Watch the write collection and swap when full
         """
         counter_doc = self.db[self.collectionc].find_one(
-            {"_id": "uniqueFieldCounter"}
+            {"_id": "completed"}
         )
         idx = 0 if counter_doc is None else counter_doc["sequence_value"]
         if idx >= self.swap_cap:  # watch
@@ -288,7 +300,7 @@ class WireheadGenerator:
         chunks = self.chunkify(data, 0)
         # 2. Get the correct index for this current sample and increment index.
         # this is atomic
-        index = self.get_current_idx()
+        index = self.get_idx()
         """
         Implicit mutex # 1.a lock create
         := Prevents pushes to write.bin when index > swap_cap
