@@ -2,13 +2,14 @@ import sys
 import time
 
 import torch
-from wirehead import MongoheadDataset
+from wirehead import MongoTupleheadDataset
 
-dataset = MongoheadDataset(config_path = "config.yaml")
+dataset = MongoTupleheadDataset(config_path = "config.yaml")
 
-for i in range(10000):
-    idx = [0]
+for i in range(100):
+    idx = [i%10]
     data = dataset[idx]
-    sample, label = data[0]['input'], data[0]['label']
+    sample, label = data[0][0], data[0][1]
     print("Loader, index: ", i)
-    time.sleep(0.1)
+
+print("Unit example passed successfully")
