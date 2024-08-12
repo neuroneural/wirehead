@@ -305,7 +305,7 @@ class WireheadGenerator:
         # 3. Push to mongodb + error handling
         if index < self.swap_cap:
             print(f"Pushing index: {index}, with cap: {self.swap_cap}")
-            self.push_chunks(branded_chunks)
+            self.push(branded_chunks)
         self.attempt_swap()
         if index > self.swap_cap * 2:
             self.reinitialize_database()
@@ -316,6 +316,5 @@ class WireheadGenerator:
         Attempts to insert (or) swap in a loop
         """
         print("Generator: Initialized")
-        n_samples = self.n_samples
-        for _ in range(n_samples):
+        for _ in range(self.n_samples):
             self.attempt_push()
