@@ -4,7 +4,7 @@ import os
 from nobrainer.processing.brain_generator import BrainGenerator
 from preprocessing import preprocessing_pipe
 import argparse
-from wirehead import WireheadManager, WireheadGenerator
+from wirehead import WireheadGenerator
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
@@ -46,7 +46,7 @@ def run_wirehead_generator(file_id):
     wirehead_generator = WireheadGenerator(
         generator=brain_generator, config_path=WIREHEAD_CONFIG
     )
-    wirehead_generator.run_generator()
+    wirehead_generator.run()
 
 
 if __name__ == "__main__":
