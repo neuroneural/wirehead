@@ -85,9 +85,11 @@ class WireheadGenerator:
             self.db.create_collection(self.collectionw)
             self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
 
+
     def reset_counter_and_write(self):
         self.reset_counter()
         self.reset_write()
+
 
     def reinitialize_database(self):
         """
@@ -108,6 +110,18 @@ class WireheadGenerator:
         except Exception as e:
             print(f"An error occurred while creating the index: {str(e)}")
 
+
+    def get_idx(self, field="started", inc: int = 0): # other field is "completed"
+        """Get current index of sample in write collection"""
+        dbc = self.db[self.collectionc]
+        counter_doc = dbc.find_one_and_update(
+            {"_id": field},
+            {"$inc": {"sequence_value": inc}},
+            return_document=ReturnDocument.BEFORE,
+        )
+        if counter_doc is None:
+            return 0
+        return counter_doc["sequence_value"]
 
     def temp_is_valid(self):
         """
@@ -204,19 +218,6 @@ class WireheadGenerator:
             print("Failed to acquire lock, another instance is performing the swap operation.")
 
 
-    def get_idx(self, field="started", inc: int = 0): # other field is "completed"
-        """Get current index of sample in write collection"""
-        dbc = self.db[self.collectionc]
-        counter_doc = dbc.find_one_and_update(
-            {"_id": field},
-            {"$inc": {"sequence_value": inc}},
-            return_document=ReturnDocument.BEFORE,
-        )
-        if counter_doc is None:
-            return 0
-        return counter_doc["sequence_value"]
-
-
     def chunkify(self, data, index):
         """
         Converts a tuple of tensors and their labels into
@@ -275,12 +276,6 @@ class WireheadGenerator:
         """
         collection_bin = self.db[self.collectionw]
         try:
-            """
-            Implicit mutex # 2 explanation 
-            :=  collection_bin.find_one({}, {"_id": 1}) will raise an error
-                    if no write collection is found 
-            :=  this lets us use the write collection itself as a mutex
-            """
             # Ping the write database with a small operation
             collection_bin.find_one({}, {"_id": 1})
             # If ping succeeds, insert the chunks
@@ -292,28 +287,24 @@ class WireheadGenerator:
             time.sleep(1)
 
 
-    def attempt_push(self):
-        """Fetch from generator and inserts into mongodb"""
-        # 0. Fetch data from generator
-        data = next(self.generator)
-        # 1. Turn the data into a list of serialized chunks with fake id
-        chunks = self.chunkify(data, 0)
-        # 2. Get the correct index for this current sample and increment index.
-        index = self.get_idx(field="started", inc = 1) # this is atomic
-        branded_chunks = [{**d, "id": index} for d in chunks]
-        # 3. Push to mongodb + error handling
-        if index < self.swap_cap:
-            print(f"Pushing index: {index}, with cap: {self.swap_cap}")
-            self.push(branded_chunks)
-        self.attempt_swap()
-        if index > self.swap_cap * 2:
-            self.reinitialize_database()
-
-
-    def run(self):
+    def run(self, verbose=False):
         """
         Attempts to insert (or) swap in a loop
         """
         print("Generator: Initialized")
         for _ in range(self.n_samples):
-            self.attempt_push()
+             # 0. Fetch data from generator
+            data = next(self.generator)
+            # 1. Turn the data into a list of serialized chunks with fake id
+            chunks = self.chunkify(data, 0)
+            # 2. Get the correct index for this current sample and increment index.
+            index = self.get_idx(field="started", inc = 1) # this is atomic
+            branded_chunks = [{**d, "id": index} for d in chunks]
+            # 3. Push to mongodb + error handling
+            if index < self.swap_cap:
+                if verbose:
+                    print(f"Pushing index: {index}, with cap: {self.swap_cap}")
+                self.push(branded_chunks)
+            self.attempt_swap()
+            if index > self.swap_cap * 2:
+                self.reinitialize_database()
