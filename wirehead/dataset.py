@@ -26,7 +26,7 @@ def quantile_normalize(img, qmin=0.01, qmax=0.99):
 def binary_to_tensor(tensor_binary):
     """ Converts a binary io buffer to a torch tensor """
     buffer = io.BytesIO(tensor_binary)
-    tensor = torch.load(buffer)
+    tensor = torch.load(buffer, weights_only=True)
     return tensor
 
 
@@ -166,7 +166,7 @@ class MongoheadDataset(Dataset):
                         if self.keeptrying:
                             if verbose:
                                 print(
-                                    f"EOFError caught. Retrying {attempt+1}/{retry_count}"
+                                    f"{str(exception)} caught. Retrying {attempt+1}/{retry_count}"
                                 )
                             time.sleep(2)
                             continue

@@ -9,6 +9,9 @@ import torch
 from pymongo import MongoClient, ReturnDocument, ASCENDING
 from pymongo.errors import OperationFailure, ConnectionFailure
 
+
+NUM_GENERATORS = 0
+
 class WireheadGenerator:
     """
     Wirehead generator class, which manages writes to mongodb.
@@ -256,12 +259,15 @@ class WireheadGenerator:
         if self.verify_collection_integrity(self.db[self.collectiont]):
             self.db[self.collectiont].rename(self.collectionr, dropTarget=True)
             self.db["status"].insert_one({"swapped": True})
-            """
-            Implicit mutex # 2 lock release
-            := Create the write collection again
-            """
-            self.db.create_collection(self.collectionw)
-            self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
+            write_collection = self.db[self.collectionw]
+            ping = write_collection.find_one()
+            if ping is not None:
+                """
+                Implicit mutex # 2 lock release
+                := Create the write collection again
+                """
+                self.db.create_collection(self.collectionw)
+                self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
             print(f"Generator: Time: {time.time()} Generated samples so far {generated}")
             print(f"Generator: Documents deleted: {result.deleted_count}")
             print("====Generator: Swap success!===")
@@ -269,8 +275,6 @@ class WireheadGenerator:
         else:
             self.db[self.collectionw].drop()
             # self.check_and_reinitialize_database() # (use b)
-        
-        
         """
         Implicit mutex # 3.b lock release
         := Deletes the temp collection
@@ -305,7 +309,7 @@ class WireheadGenerator:
         Implicit mutex # 1.a lock create
         := Prevents pushes to write.bin when index > swap_cap
         """
-        if index < self.swap_cap:
+        if index < self.swap_cap + NUM_GENERATORS:
             print(index, self.swap_cap)
             branded_chunks = [{**d, "id": index} for d in chunks]
             # 3. Push to mongodb + error handling
