@@ -81,7 +81,7 @@ class WireheadGenerator:
         ) # update comnpleted index
 
     def reset_write(self):
-        if self.ping(self.collectionw):
+        if not self.ping(self.collectionw):
             self.db.create_collection(self.collectionw)
             self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
 
