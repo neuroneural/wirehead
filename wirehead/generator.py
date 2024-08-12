@@ -3,7 +3,7 @@
 import io
 import os
 import time
-from typing import Any, Generator, Optional, Tuple
+from typing import Any, Generator, Tuple
 
 import yaml
 import bson
@@ -63,7 +63,7 @@ class WireheadGenerator:
                 return False
             self.db[collection_name].find_one({}, {'_id': 1})
             return True
-        except:
+        except Exception:
             return False
 
 
@@ -107,7 +107,6 @@ class WireheadGenerator:
             print("Generator: Database reinitialized successfully.")
         except Exception as e:
             print(f"An error occurred while creating the index: {str(e)}")
-
 
 
     def temp_is_valid(self):
@@ -185,7 +184,7 @@ class WireheadGenerator:
                 upsert=True,
                 return_document=ReturnDocument.AFTER
             )
-        except:
+        except OperationFailure:
             time.sleep(0.1)
             print("Swap is locked, another instance is performing the swap operation.")
             return
