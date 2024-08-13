@@ -96,20 +96,20 @@ class WireheadGenerator:
         """
         Check the counters collection and reinitialize the database if the check fails
         """
-        # Drop all collections except the write collection
-        for collection_name in [self.collectionw, self.collectiont, self.collectionc]:
-            self.db[collection_name].drop()
-        # Initialize counters collection
-        self.reset_counter()
-        # Create write collection
-        try:
-            write_collection = self.db[self.collectionw]
-            write_collection.create_index([("id", ASCENDING)], background=True)
-            # Create status collection (empty)
-            _status_collection = self.db['status']
-            print("Generator: Database reinitialized successfully.")
-        except Exception as e:
-            print(f"An error occurred while creating the index: {str(e)}")
+        if not self.ping(self.collectionc):
+            for collection_name in [self.collectionw, self.collectiont, self.collectionc]:
+                self.db[collection_name].drop()
+            # Initialize counters collection
+            self.reset_counter()
+            # Create write collection
+            try:
+                write_collection = self.db[self.collectionw]
+                write_collection.create_index([("id", ASCENDING)], background=True)
+                # Create status collection (empty)
+                _status_collection = self.db['status']
+                print("Generator: Database reinitialized successfully.")
+            except Exception as e:
+                print(f"An error occurred while creating the index: {str(e)}")
 
 
     def get_idx(self, field="started", inc: int = 0): # other field is "completed"
