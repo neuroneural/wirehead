@@ -306,4 +306,5 @@ class WireheadGenerator:
                 self.push(branded_chunks)
             self.attempt_swap()
             if index > self.swap_cap * 2:
+                self.db[self.collectionc].drop()
                 self.reinitialize_database()
