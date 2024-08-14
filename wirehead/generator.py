@@ -286,25 +286,31 @@ class WireheadGenerator:
             time.sleep(1)
 
 
-    def run(self, verbose=False):
+    def cycle(self, verbose=False):
         """
         Attempts to insert (or) swap in a loop
         """
+         # 0. Fetch data from generator
+        data = next(self.generator)
+        # 1. Turn the data into a list of serialized chunks with fake id
+        chunks = self.chunkify(data, 0)
+        # 2. Get the correct index for this current sample and increment index.
+        index = self.get_idx(field="started", inc = 1) # this is atomic
+        branded_chunks = [{**d, "id": index} for d in chunks]
+        # 3. Push to mongodb + error handling
+        if index < self.swap_cap:
+            if verbose:
+                print(f"Pushing index: {index}, with cap: {self.swap_cap}")
+            self.push(branded_chunks)
+        self.attempt_swap()
+        if index > self.swap_cap * 2:
+            self.db[self.collectionc].drop()
+            self.reinitialize_database()
+
+    def run(self, verbose=False):
+        """
+        Runs self.cycle() in a loop until n_samples have been generated
+        """
         print("Generator: Initialized")
         for _ in range(self.n_samples):
-             # 0. Fetch data from generator
-            data = next(self.generator)
-            # 1. Turn the data into a list of serialized chunks with fake id
-            chunks = self.chunkify(data, 0)
-            # 2. Get the correct index for this current sample and increment index.
-            index = self.get_idx(field="started", inc = 1) # this is atomic
-            branded_chunks = [{**d, "id": index} for d in chunks]
-            # 3. Push to mongodb + error handling
-            if index < self.swap_cap:
-                if verbose:
-                    print(f"Pushing index: {index}, with cap: {self.swap_cap}")
-                self.push(branded_chunks)
-            self.attempt_swap()
-            if index > self.swap_cap * 2:
-                self.db[self.collectionc].drop()
-                self.reinitialize_database()
+            self.cycle(verbose)
