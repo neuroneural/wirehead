@@ -153,6 +153,7 @@ class WireheadGenerator:
         Deletes old write collection
         Maintains data integrity in between
         """
+        time.sleep(2)
         try:
             self.db[self.collectionw].rename(self.collectiont, dropTarget=False)
             """
