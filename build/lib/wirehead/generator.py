@@ -10,7 +10,7 @@ import bson
 
 import torch
 from pymongo import MongoClient, ReturnDocument, ASCENDING
-from pymongo.errors import OperationFailure, ConnectionFailure, BulkWriteError
+from pymongo.errors import OperationFailure, ConnectionFailure
 
 class WireheadGenerator:
     """
@@ -193,8 +193,8 @@ class WireheadGenerator:
         # Don't attempt a swap if less than swap_cap
         if idx < self.swap_cap:
             return
+
         try: # Attempt to fetch the lock
-            time.sleep(2)
             lock_doc = self.db[self.collectionc].find_one_and_update(
                 {"_id": "swap_lock", "locked": False},
                 {"$set": {"locked": True, "timestamp": time.time()}},
@@ -208,6 +208,7 @@ class WireheadGenerator:
                 print("Failed to acquire lock, another instance is performing the swap operation.")
 
         except OperationFailure:
+            time.sleep(0.1)
             print("Swap is locked, another instance is performing the swap operation.")
             return
 
@@ -279,10 +280,10 @@ class WireheadGenerator:
             # Ping the write database with a small operation
             collection_bin.find_one({}, {"_id": 1})
             # If ping succeeds, insert the chunks
-            collection_bin.insert_many(chunks, write_concern=pymongo.WriteConcern(w='majority', j=True))
+            collection_bin.insert_many(chunks)
             # If push completes, increment completed counter
             _completed = self.get_idx(field="completed", inc=1)
-        except (BulkWriteError OperationFailure, ConnectionFailure) as exception:
+        except (OperationFailure, ConnectionFailure) as exception:
             print(f"Generator: An error occurred: {exception}")
             time.sleep(1)
 
