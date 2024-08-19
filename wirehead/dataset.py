@@ -168,7 +168,7 @@ class MongoheadDataset(Dataset):
                                 print(
                                     f"{str(exception)} caught. Retrying {attempt+1}/{retry_count}"
                                 )
-                            time.sleep(2)
+                            time.sleep(0.1)
                             continue
                         else:
                             raise exception

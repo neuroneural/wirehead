@@ -68,6 +68,9 @@ class WireheadGenerator:
 
 
     def reset_counter(self):
+        if self.ping(self.collectionc):
+            self.db[self.collectionc].drop()
+        self.db.create_collection(self.collectionc)
         counters_collection = self.db[self.collectionc]
         counters_collection.update_one(
             {"_id": "started"},
@@ -129,7 +132,13 @@ class WireheadGenerator:
         Verifies temp collection contains contiguous elements with id 0..swap_cap
         """
         # temp_ids = self.db[self.collectiont].distinct("id", {"telomere": {"$exists": True, "$ne": None}}))
-        temp_ids = self.db[self.collectiont].distinct("id")
+        # temp_ids = self.db[self.collectiont].distinct("id")
+        temp_ids = [
+            doc["id"]
+            for doc in self.db[self.collectiont].find(
+                {"telomere": {"$exists": True}}, {"id": 1}
+            )
+        ]
         """ Checks if there are enough elements """
         unique_ids_count = len(temp_ids)
         if unique_ids_count != self.swap_cap:
@@ -176,8 +185,8 @@ class WireheadGenerator:
                 print(f"Generator: Documents deleted: {result.deleted_count}")
                 print("\t====Generator: Swap success!====")
 
-            dbt = self.db[self.collectiont]
-            dbt.drop()
+            self.db[self.collectiont].drop() # cleanup temp collection
+            
             
         except OperationFailure:
             print("Generator: Other manager swapping, swap skipped")
@@ -191,31 +200,29 @@ class WireheadGenerator:
         counter_doc = self.db[self.collectionc].find_one({"_id": "completed"})
         idx = 0 if counter_doc is None else counter_doc["sequence_value"]
         # Don't attempt a swap if less than swap_cap
-        if idx < self.swap_cap:
+        if idx <= self.swap_cap+1:
             return
         try: # Attempt to fetch the lock
-            time.sleep(2)
             lock_doc = self.db[self.collectionc].find_one_and_update(
                 {"_id": "swap_lock", "locked": False},
                 {"$set": {"locked": True, "timestamp": time.time()}},
-                upsert=True,
+                # upsert=True,
                 return_document=ReturnDocument.AFTER
             )
             if lock_doc and lock_doc["locked"]: # Do the swap
                 self.swap()                     # swap
                 self.reset_counter_and_write()  # cleanup
+                self.db[self.collectionc].update_one(
+                    {"_id": "swap_lock"},
+                    {"$set": {"locked": False}}
+                )
             else:
                 print("Failed to acquire lock, another instance is performing the swap operation.")
 
         except OperationFailure:
+            time.sleep(2)
             print("Swap is locked, another instance is performing the swap operation.")
             return
-
-        finally: # Release the lock
-            self.db[self.collectionc].update_one(
-                {"_id": "swap_lock"},
-                {"$set": {"locked": False}}
-            )
         
 
     def chunkify(self, data, index):
