@@ -289,7 +289,7 @@ class WireheadGenerator:
             collection_bin.insert_many(chunks, write_concern=pymongo.WriteConcern(w='majority', j=True))
             # If push completes, increment completed counter
             _completed = self.get_idx(field="completed", inc=1)
-        except (BulkWriteError OperationFailure, ConnectionFailure) as exception:
+        except (BulkWriteError, OperationFailure, ConnectionFailure) as exception:
             print(f"Generator: An error occurred: {exception}")
             time.sleep(1)
 
@@ -305,6 +305,7 @@ class WireheadGenerator:
         # 2. Get the correct index for this current sample and increment index.
         index = self.get_idx(field="started", inc = 1) # this is atomic
         branded_chunks = [{**d, "id": index} for d in chunks]
+        branded_chunks[-1]["telomere"] = True
         # 3. Push to mongodb + error handling
         if index < self.swap_cap:
             if verbose:
