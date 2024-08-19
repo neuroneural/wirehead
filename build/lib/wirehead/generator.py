@@ -10,7 +10,7 @@ import bson
 
 import torch
 from pymongo import MongoClient, ReturnDocument, ASCENDING
-from pymongo.errors import OperationFailure, ConnectionFailure
+from pymongo.errors import OperationFailure, ConnectionFailure, BulkWriteError
 
 class WireheadGenerator:
     """
@@ -68,6 +68,9 @@ class WireheadGenerator:
 
 
     def reset_counter(self):
+        if self.ping(self.collectionc):
+            self.db[self.collectionc].drop()
+        self.db.create_collection(self.collectionc)
         counters_collection = self.db[self.collectionc]
         counters_collection.update_one(
             {"_id": "started"},
@@ -129,7 +132,13 @@ class WireheadGenerator:
         Verifies temp collection contains contiguous elements with id 0..swap_cap
         """
         # temp_ids = self.db[self.collectiont].distinct("id", {"telomere": {"$exists": True, "$ne": None}}))
-        temp_ids = self.db[self.collectiont].distinct("id")
+        # temp_ids = self.db[self.collectiont].distinct("id")
+        temp_ids = [
+            doc["id"]
+            for doc in self.db[self.collectiont].find(
+                {"telomere": {"$exists": True}}, {"id": 1}
+            )
+        ]
         """ Checks if there are enough elements """
         unique_ids_count = len(temp_ids)
         if unique_ids_count != self.swap_cap:
@@ -154,7 +163,6 @@ class WireheadGenerator:
         Deletes old write collection
         Maintains data integrity in between
         """
-        time.sleep(2)
         try:
             self.db[self.collectionw].rename(self.collectiont, dropTarget=False)
             """
@@ -176,8 +184,8 @@ class WireheadGenerator:
                 print(f"Generator: Documents deleted: {result.deleted_count}")
                 print("\t====Generator: Swap success!====")
 
-            dbt = self.db[self.collectiont]
-            dbt.drop()
+            self.db[self.collectiont].drop() # cleanup temp collection
+            
             
         except OperationFailure:
             print("Generator: Other manager swapping, swap skipped")
@@ -191,32 +199,30 @@ class WireheadGenerator:
         counter_doc = self.db[self.collectionc].find_one({"_id": "completed"})
         idx = 0 if counter_doc is None else counter_doc["sequence_value"]
         # Don't attempt a swap if less than swap_cap
+        print(idx)
         if idx < self.swap_cap:
             return
-
+        time.sleep(2)
         try: # Attempt to fetch the lock
             lock_doc = self.db[self.collectionc].find_one_and_update(
                 {"_id": "swap_lock", "locked": False},
                 {"$set": {"locked": True, "timestamp": time.time()}},
-                upsert=True,
+                # upsert=True,
                 return_document=ReturnDocument.AFTER
             )
             if lock_doc and lock_doc["locked"]: # Do the swap
                 self.swap()                     # swap
                 self.reset_counter_and_write()  # cleanup
+                self.db[self.collectionc].update_one(
+                    {"_id": "swap_lock"},
+                    {"$set": {"locked": False}}
+                )
             else:
                 print("Failed to acquire lock, another instance is performing the swap operation.")
 
         except OperationFailure:
-            time.sleep(0.1)
             print("Swap is locked, another instance is performing the swap operation.")
             return
-
-        finally: # Release the lock
-            self.db[self.collectionc].update_one(
-                {"_id": "swap_lock"},
-                {"$set": {"locked": False}}
-            )
         
 
     def chunkify(self, data, index):
@@ -280,10 +286,10 @@ class WireheadGenerator:
             # Ping the write database with a small operation
             collection_bin.find_one({}, {"_id": 1})
             # If ping succeeds, insert the chunks
-            collection_bin.insert_many(chunks)
+            collection_bin.insert_many(chunks, write_concern=pymongo.WriteConcern(w='majority', j=True))
             # If push completes, increment completed counter
             _completed = self.get_idx(field="completed", inc=1)
-        except (OperationFailure, ConnectionFailure) as exception:
+        except (BulkWriteError, OperationFailure, ConnectionFailure) as exception:
             print(f"Generator: An error occurred: {exception}")
             time.sleep(1)
 
@@ -299,6 +305,7 @@ class WireheadGenerator:
         # 2. Get the correct index for this current sample and increment index.
         index = self.get_idx(field="started", inc = 1) # this is atomic
         branded_chunks = [{**d, "id": index} for d in chunks]
+        branded_chunks[-1]["telomere"] = True
         # 3. Push to mongodb + error handling
         if index < self.swap_cap:
             if verbose:
