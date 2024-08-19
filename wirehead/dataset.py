@@ -166,7 +166,7 @@ class MongoheadDataset(Dataset):
                         if self.keeptrying:
                             if verbose:
                                 print(
-                                    f"{str(exception)} caught. Retrying {attempt+1}/{retry_count}"
+                                    f"{str(exception)[:20]} caught. Retrying {attempt+1}/{retry_count}"
                                 )
                             time.sleep(1)
                             continue
