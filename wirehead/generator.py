@@ -7,8 +7,8 @@ from typing import Any, Generator, Tuple
 
 import yaml
 import bson
-
 import torch
+import numpy as np
 from pymongo import MongoClient, ReturnDocument, ASCENDING
 from pymongo.errors import OperationFailure, ConnectionFailure, BulkWriteError
 
@@ -262,9 +262,16 @@ class WireheadGenerator:
         binobj = data
         kinds = self.sample
         for i, kind in enumerate(kinds):
+            if isinstance(binobj[i], torch.Tensor):
+                payload = binobj[i]
+            elif isinstance(binobj[i], np.ndarray):
+                payload = torch.from_numpy(binobj[i])
+            else:
+                # It's neither a PyTorch tensor nor a NumPy array
+                raise TypeError(f"Unsupported type for binobj[{i}]: {type(binobj[i])}")
             chunks += list(
                 chunk_binobj(
-                    tensor2bin(torch.from_numpy(binobj[i])),
+                    tensor2bin(payload),
                     index,
                     kind,
                     self.chunksize,
