@@ -143,14 +143,14 @@ class WireheadGenerator:
         unique_ids_count = len(temp_ids)
         if unique_ids_count != self.swap_cap:
             print(
-                f"Generator: Expected {self.swap_cap} ids, found {unique_ids_count}"
+                f"Generator: skipped swap, expected {self.swap_cap} ids, found {unique_ids_count}."
             )
             return False
         """ Checks for contiguous ids """
         actual_ids_set = set(temp_ids)
         if self.expected_ids_set != actual_ids_set:
             print(
-                "Generator: Ids aren't continuous from 0 to self.swap_cap - 1"
+                f"Generator: skipped swaps, ids aren't continuous from 0 to {self.swap_cap - 1}."
             )
             return False
         # If all checks pass
@@ -188,7 +188,7 @@ class WireheadGenerator:
             
             
         except OperationFailure:
-            print("Generator: Other manager swapping, swap skipped")
+            print("Generator: cannot swap, another instance is performing the swap operation.")
             return 
 
 
@@ -216,10 +216,10 @@ class WireheadGenerator:
                     {"$set": {"locked": False}}
                 )
             else:
-                print("Failed to acquire lock, another instance is performing the swap operation.")
+                print("Generator: cannot swap, another instance is performing the swap operation.")
 
         except OperationFailure:
-            print("Swap is locked, another instance is performing the swap operation.")
+            print("Generator: cannot swap, another instance is performing the swap operation.")
             time.sleep(1)
             return
         
@@ -289,7 +289,7 @@ class WireheadGenerator:
             # If push completes, increment completed counter
             _completed = self.get_idx(field="completed", inc=1)
         except (BulkWriteError, OperationFailure, ConnectionFailure) as exception:
-            print(f"Generator: An error occurred: {exception}")
+            print(f"Generator error: {exception}")
             time.sleep(1)
 
 
