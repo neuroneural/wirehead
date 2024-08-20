@@ -8,3 +8,6 @@ venv/
 *.log
 nobrainer-synthseg/
 nobrainer/
+infinity/
+build/
+dist/
