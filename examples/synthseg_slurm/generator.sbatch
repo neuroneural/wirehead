@@ -1,24 +1,21 @@
 #!/bin/bash
-
-#SBATCH --job-name=wirehead
+#SBATCH --job-name=wh-gen
 #SBATCH --nodes=1
 #SBATCH -c 64
-#SBATCH --mem=128g
+#SBATCH --mem=200g
 #SBATCH --gres=gpu:A40:1
 #SBATCH --output=./log/generate_output_%A_%a.log
 #SBATCH --error=./log/generate_error_%A_%a.log
-#SBATCH --time=00:15:00
+#SBATCH --time=00:10:00
 #SBATCH -p qTRDGPU
 #SBATCH -A psy53c17
-#SBATCH --array=0-10
+#SBATCH --array=0-3
 
-
-NUM_GENERATORS=8
-conda init bash
-conda activate wirehead
+NUM_GENERATORS=4
+conda activate wirehead # replace with proper activation functions for your environment
 
 for i in $(seq 0 $((NUM_GENERATORS-1))); do
-  python generator.py $NUM_GENERATORS $i &
+  python generator.py 4 $NUM_GENERATORS $i &
   pids+=($!)
 done
 
