@@ -131,8 +131,6 @@ class WireheadGenerator:
         """
         Verifies temp collection contains contiguous elements with id 0..swap_cap
         """
-        # temp_ids = self.db[self.collectiont].distinct("id", {"telomere": {"$exists": True, "$ne": None}}))
-        # temp_ids = self.db[self.collectiont].distinct("id")
         temp_ids = [
             doc["id"]
             for doc in self.db[self.collectiont].find(
@@ -153,8 +151,7 @@ class WireheadGenerator:
                 f"Generator: skipped swaps, ids aren't continuous from 0 to {self.swap_cap - 1}."
             )
             return False
-        # If all checks pass
-        return True
+        return True # all checks passed
 
     
     def swap(self):
