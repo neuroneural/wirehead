@@ -1,9 +1,7 @@
-from time import time
 import gc
 import os
 from nobrainer.processing.brain_generator import BrainGenerator
 from preprocessing import preprocessing_pipe
-import argparse
 from wirehead import WireheadGenerator
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -19,7 +17,7 @@ NUM_GENERATORS = 1
 physical_devices = tf.config.list_physical_devices("GPU")
 try:
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
-except:
+except Exception :
     pass
 
 
