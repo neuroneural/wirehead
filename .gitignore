@@ -7,3 +7,7 @@ venv/
 *nii.gz
 *.log
 nobrainer-synthseg/
+nobrainer/
+infinity/
+build/
+dist/

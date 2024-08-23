@@ -1,4 +1,4 @@
-MONGOHOST: "arctrdcn018.rs.gsu.edu" # replace with the ip/hostname of your mongonode
+MONGOHOST: "localhost" # replace with the ip/hostname of your mongonode
 DBNAME: "synthseg-example"
 SWAP_CAP: 2
 

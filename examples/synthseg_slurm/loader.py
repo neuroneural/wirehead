@@ -1,15 +1,14 @@
 import sys
+import time
 
 import torch
 from wirehead import MongoheadDataset
 
 dataset = MongoheadDataset(config_path = "config.yaml")
 
-idx = [0] 
-data = dataset[idx]
-sample, label = data[0]['input'], data[0]['label']
-print(sample.shape)
-print(label.shape)
-print("Fetched successfully")
-if sample.shape == label.shape and sample.shape == (256,256,256):
-    print("Test passed")
+for i in range(10000):
+    idx = [0]
+    data = dataset[idx]
+    sample, label = data[0]['input'], data[0]['label']
+    print("Loader, index: ", i)
+    time.sleep(0.1)

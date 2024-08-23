@@ -7,7 +7,7 @@ def load_config(file_path):
     return config
 
 def delete_database(client, db_name):
-    if client[db_name] != None:
+    if client[db_name] is not None:
         client.drop_database(db_name)
     print(f"Deleted database: {db_name}")
 
