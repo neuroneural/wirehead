@@ -94,16 +94,7 @@ chmod +x test.sh
 
 See examples/unit for a minimal example 
 
-## 1. Manager
-```python
-from wirehead import WireheadManager
-
-if __name__ == "__main__":
-    wirehead_runtime = WireheadManager(config_path="config.yaml")
-    wirehead_runtime.run_manager()
-```
-
-## 2. Generator
+## 1. Generator
 
 ```python
 import numpy as np
@@ -124,7 +115,7 @@ if __name__ == "__main__":
     wirehead_runtime.run_generator()
 ```
 
-## 3. Dataset
+## 2. Dataset
 ```python
 import torch
 from wirehead import MongoheadDataset
