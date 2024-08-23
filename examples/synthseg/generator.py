@@ -1,10 +1,8 @@
-from time import time
 import gc
 import os
 from nobrainer.processing.brain_generator import BrainGenerator
 from preprocessing import preprocessing_pipe
-import argparse
-from wirehead import WireheadManager, WireheadGenerator
+from wirehead import WireheadGenerator
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
@@ -19,7 +17,7 @@ NUM_GENERATORS = 1
 physical_devices = tf.config.list_physical_devices("GPU")
 try:
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
-except:
+except Exception :
     pass
 
 
@@ -32,7 +30,6 @@ def create_generator(file_id=0):
     training_seg = DATA_FILES[file_id]
     brain_generator = BrainGenerator(
         training_seg,
-        randomise_res=False,
     )
     print(f"Generator {file_id}: SynthSeg is using {training_seg}", flush=True)
     while True:
@@ -46,4 +43,4 @@ if __name__ == "__main__":
     wirehead_generator = WireheadGenerator(
         generator=brain_generator, config_path=WIREHEAD_CONFIG
     )
-    wirehead_generator.run_generator()
+    wirehead_generator.run(verbose=True)
