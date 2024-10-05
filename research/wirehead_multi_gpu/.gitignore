@@ -1,0 +1,6 @@
+*.pth
+SynthSeg/
+wirehead/
+config.yaml
+
+
