@@ -252,9 +252,8 @@ class WireheadGenerator:
             """
             Seralize a torch tensor into an IO buffer
             """
-            tensor_1d = tensor.to(torch.uint8)
             buffer = io.BytesIO()
-            torch.save(tensor_1d, buffer)
+            torch.save(tensor, buffer)
             tensor_binary = buffer.getvalue()
             return tensor_binary
 
