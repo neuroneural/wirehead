@@ -554,8 +554,8 @@ class MultiHeadDataset(Dataset):
             ]
 
             # Separate processing for each 'kind'
-            data = [self.make_serial(
-                samples_for_id, self.sample[i]) for i in range(len(self.sample))]
+            data = [binary_to_tensor(self.make_serial(
+                samples_for_id, self.sample[i])) for i in range(len(self.sample))]
 
             # Append to results
             results.append(tuple(data))
