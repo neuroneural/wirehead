@@ -1,0 +1,11 @@
+MONGOHOST: "localhost" # hostname or ip of node hosting mongodb
+DBNAME: "unit-test"    # name of database inside mongodb
+SWAP_CAP: 100         # max size for write/read collection. Bigger gives bigger buffer, but takes more space
+
+# Change if you know what you're doing
+SAMPLE: ["one", "two", "three", "four"]
+WRITE_COLLECTION: "write"
+READ_COLLECTION: "read"
+COUNTER_COLLECTION: "counter"
+TEMP_COLLECTION: "temp"
+CHUNKSIZE: 10
