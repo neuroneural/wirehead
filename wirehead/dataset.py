@@ -555,7 +555,7 @@ class MultiHeadDataset(Dataset):
 
             # Separate processing for each 'kind'
             data = [self.make_serial(
-                samples_for_id, self.sample[0]) for i in self.sample]
+                samples_for_id, self.sample[i]) for i in self.sample]
 
             # Append to results
             results.append(tuple(data))
