@@ -24,12 +24,14 @@ class WireheadGenerator:
     def __init__(self,
                  generator: Generator[Tuple[Any, ...], None, None],
                  config_path: str = "config.yaml",
-                 n_samples: int = int(1e9)):
+                 n_samples: int = int(1e9),
+                 do_swap = True):
         if config_path is None or os.path.exists(config_path) is False:
             print("No valid config specified, exiting")
             return
         self.generator = generator
         self.n_samples = n_samples
+        self.do_swap = do_swap
         self.config_path = config_path
         self.load_from_yaml()
         self.reinitialize_database()
@@ -313,10 +315,12 @@ class WireheadGenerator:
             if verbose:
                 print(f"Pushing index: {index}, with cap: {self.swap_cap}")
             self.push(branded_chunks)
-        self.attempt_swap()
-        if index > self.swap_cap * 2:
-            self.db[self.collectionc].drop()
-            self.reinitialize_database()
+
+        if self.do_swap:
+            self.attempt_swap()
+            if index > self.swap_cap * 2:
+                self.db[self.collectionc].drop()
+                self.reinitialize_database()
 
     def run(self, verbose=False):
         """
