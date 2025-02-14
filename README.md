@@ -192,4 +192,16 @@ runtime.run_generator() # runs an infinite loop
 
 This code is under [MIT](https://github.com/neuroneural/wirehead/blob/main/LICENSE) licensing
 
+If you use it, please consider citing:
+1. Doan M, Plis S. [Scaling Synthetic Brain Data Generation](https://ieeexplore.ieee.org/abstract/document/10807405). IEEE Journal of Biomedical and Health Informatics. 2024 Dec 19.
+```bibtex
+@article{doan2024scaling,
+  title={Scaling Synthetic Brain Data Generation},
+  author={Doan, Mike and Plis, Sergey},
+  journal={IEEE Journal of Biomedical and Health Informatics},
+  year={2024},
+  publisher={IEEE}
+}
+```
+
 If you have any questions specific to the Wirehead pipeline, please raise an issue or contact us at mdoan4@gsu.edu
