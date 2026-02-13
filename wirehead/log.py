@@ -123,22 +123,37 @@ class WireheadLogger:
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="wirehead-logger",
-        description="Wirehead swap logger daemon",
+        prog="wirehead",
+        description="Wirehead CLI",
     )
     parser.add_argument(
         "config",
         help="path to wirehead config.yaml",
     )
     parser.add_argument(
+        "--daemon",
+        action="store_true",
+        help="run the swap log watcher daemon",
+    )
+    parser.add_argument(
         "--poll-interval",
         type=float,
         default=2.0,
-        help="seconds between polls (default: 2.0)",
+        help="seconds between daemon polls (default: 2.0)",
     )
     args = parser.parse_args()
-    logger = WireheadLogger(args.config, poll_interval=args.poll_interval)
-    logger.run()
+
+    if args.daemon:
+        logger = WireheadLogger(args.config, poll_interval=args.poll_interval)
+        logger.run()
+    else:
+        # Default: print swap history and exit
+        logger = WireheadLogger(args.config)
+        logs = logger.history()
+        if not logs:
+            print("No swaps recorded yet.")
+        for log in logs:
+            print(log)
 
 
 if __name__ == "__main__":
