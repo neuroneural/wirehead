@@ -58,7 +58,7 @@ For full documentation and examples, visit: https://github.com/neuroneural/wireh
     ],
     entry_points={
         'console_scripts': [
-            # Define any command-line entry points here
+            'wirehead-logger=wirehead.log:main',
         ],
     },
     classifiers=[
