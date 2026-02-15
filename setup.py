@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='wirehead',
-    version='0.9.2',
+    version='0.9.1',
     packages=find_packages(),
     description="Caching system for scaling of synthetic data generators using MongoDB",
     long_description="""# Wirehead
@@ -48,7 +48,7 @@ For full documentation and examples, visit: https://github.com/neuroneural/wireh
 """,
     long_description_content_type="text/markdown",
     author="Neuroneural Lab",
-    author_email="mdoan4@gsu.edu",
+    author_email="spikedoanz@gmail.com",
     url="https://github.com/neuroneural/wirehead",
     install_requires=[
         'pymongo',
