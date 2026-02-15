@@ -2,9 +2,13 @@
 
 from .dataset import MongoheadDataset, MongoTupleheadDataset
 from .generator import WireheadGenerator
+from .log import SwapLog, WireheadSnapshot, WireheadLogger
 
 __all__ = [
     'MongoheadDataset',
     'MongoTupleheadDataset',
-    'WireheadGenerator'
+    'WireheadGenerator',
+    'SwapLog',
+    'WireheadSnapshot',
+    'WireheadLogger',
 ]

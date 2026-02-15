@@ -173,7 +173,10 @@ class WireheadGenerator:
             result = self.db[self.collectiont].delete_many({"id": {"$gt": self.swap_cap - 1}})
             if self.temp_is_valid():
                 self.db[self.collectiont].rename(self.collectionr, dropTarget=True)
-                self.db["status"].insert_one({"swapped": True})
+                self.db["status"].insert_one({
+                    "swapped": True,
+                    "swap_timestamp": time.time(),
+                })
                 """ Implicit mutex 1.b release """
                 self.reset_write()
 
