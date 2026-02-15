@@ -1,5 +1,6 @@
 """ Wirehead logging types and logger daemon """
 
+import json
 import os
 import sys
 import time
@@ -29,14 +30,11 @@ class SwapLog:
     swap_count: int = 0
     db_name: str = ""
 
+    def to_jsonl(self) -> str:
+        return json.dumps(asdict(self))
+
     def __str__(self):
-        duration_str = f"{self.swap_duration:.2f}s" if self.swap_duration else "N/A"
-        return (
-            f"[swap #{self.swap_count}] "
-            f"t={self.swap_timestamp:.3f} "
-            f"cache_lifetime={duration_str} "
-            f"db={self.db_name}"
-        )
+        return self.to_jsonl()
 
 
 class WireheadLogger:
