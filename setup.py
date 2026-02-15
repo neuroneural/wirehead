@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='wirehead',
-    version='0.9.1',
+    version='0.9.2',
     packages=find_packages(),
     description="Caching system for scaling of synthetic data generators using MongoDB",
     long_description="""# Wirehead
