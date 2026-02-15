@@ -11,4 +11,4 @@ if __name__ == "__main__":
         print(log)
 
     # Run as daemon (tails for new swaps)
-    # logger.run()
+    logger.run()
