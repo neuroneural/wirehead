@@ -59,14 +59,19 @@ class WireheadSnapshot:
     time_since_last_swap: Optional[float] = None
     avg_swap_duration: Optional[float] = None
 
+    # rates
+    samples_per_s: float = 0.0
+    swaps_per_s: float = 0.0
+    write_mb_per_s: float = 0.0
+
     # collection stats
     write_docs: int = 0
     write_size_mb: float = 0.0
     read_docs: int = 0
     read_size_mb: float = 0.0
 
-    # mongo server
-    mongo_connections: int = 0
+    # mongo (scoped to this db)
+    mongo_active_ops: int = 0
 
     # metadata
     db_name: str = ""
@@ -119,6 +124,12 @@ class WireheadLogger:
 
         # Track swap history for rolling averages
         self.swap_logs: List[SwapLog] = []
+
+        # Previous snapshot state for rate computation
+        self._prev_time: Optional[float] = None
+        self._prev_completed: int = 0
+        self._prev_swap_count: int = 0
+        self._prev_write_size_mb: float = 0.0
 
     def _fetch_new_swaps(self) -> list:
         """Fetch status docs newer than last_seen_id, ordered oldest-first."""
@@ -217,11 +228,30 @@ class WireheadLogger:
         write_docs, write_size_mb = self._get_coll_stats(self.write_collection)
         read_docs, read_size_mb = self._get_coll_stats(self.read_collection)
 
-        # Mongo connections
-        mongo_connections = 0
+        # Rates (delta / dt since last snapshot)
+        samples_per_s = 0.0
+        swaps_per_s = 0.0
+        write_mb_per_s = 0.0
+        if self._prev_time is not None:
+            dt = now - self._prev_time
+            if dt > 0:
+                samples_per_s = (completed - self._prev_completed) / dt
+                swaps_per_s = (self.swap_count - self._prev_swap_count) / dt
+                write_mb_per_s = (write_size_mb - self._prev_write_size_mb) / dt
+                # Clamp negatives (write collection resets on swap)
+                if write_mb_per_s < 0:
+                    write_mb_per_s = 0.0
+        self._prev_time = now
+        self._prev_completed = completed
+        self._prev_swap_count = self.swap_count
+        self._prev_write_size_mb = write_size_mb
+
+        # Active ops scoped to this database
+        mongo_active_ops = 0
         try:
-            server_status = self.db.command("serverStatus")
-            mongo_connections = server_status.get("connections", {}).get("current", 0)
+            admin_db = self.client["admin"]
+            result = admin_db.command("currentOp", {"ns": {"$regex": f"^{self.db_name}\\."}})
+            mongo_active_ops = len(result.get("inprog", []))
         except Exception:
             pass
 
@@ -238,11 +268,14 @@ class WireheadLogger:
             swap_duration=swap_dur,
             time_since_last_swap=time_since,
             avg_swap_duration=avg_dur,
+            samples_per_s=samples_per_s,
+            swaps_per_s=swaps_per_s,
+            write_mb_per_s=write_mb_per_s,
             write_docs=write_docs,
             write_size_mb=write_size_mb,
             read_docs=read_docs,
             read_size_mb=read_size_mb,
-            mongo_connections=mongo_connections,
+            mongo_active_ops=mongo_active_ops,
             db_name=self.db_name,
             poll_interval=self.poll_interval,
             timestamp=now,
@@ -336,7 +369,7 @@ class WireheadLogger:
         put(row, 28, f"avg lifetime: {avg_str}")
         row += 1
 
-        # Fill bar
+        # Fill bar + rates
         bar_width = 20
         filled = int(snap.fill_pct / 100 * bar_width)
         bar = "█" * filled + "░" * (bar_width - filled)
@@ -349,6 +382,10 @@ class WireheadLogger:
             put(row, 28, "state: IDLE")
         row += 1
 
+        put(row, 1, f"sample/s:   {snap.samples_per_s:.1f}")
+        put(row, 28, f"swap/s:       {snap.swaps_per_s:.2f}")
+        row += 1
+
         put(row, 0, "─" * (w - 1))
         row += 1
 
@@ -358,10 +395,11 @@ class WireheadLogger:
         row += 1
 
         put(row, 1, f"{snap.write_docs:>6} docs  ({snap.write_size_mb:.1f} MB)  write")
-        put(row, 40, f"connections: {snap.mongo_connections}")
+        put(row, 40, f"active ops: {snap.mongo_active_ops}")
         row += 1
 
         put(row, 1, f"{snap.read_docs:>6} docs  ({snap.read_size_mb:.1f} MB)  read")
+        put(row, 40, f"write: {snap.write_mb_per_s:.2f} MB/s")
         row += 1
 
         put(row, 0, "─" * (w - 1))
