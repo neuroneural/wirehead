@@ -173,10 +173,19 @@ class WireheadGenerator:
             result = self.db[self.collectiont].delete_many({"id": {"$gt": self.swap_cap - 1}})
             if self.temp_is_valid():
                 self.db[self.collectiont].rename(self.collectionr, dropTarget=True)
-                self.db["status"].insert_one({
+                status_coll = self.db["status"]
+                status_coll.insert_one({
                     "swapped": True,
                     "swap_timestamp": time.time(),
                 })
+                # Cap the status collection at 1 million entries
+                max_status_docs = 1_000_000
+                count = status_coll.estimated_document_count()
+                if count > max_status_docs:
+                    oldest = status_coll.find().sort("_id", 1).limit(count - max_status_docs)
+                    ids_to_delete = [doc["_id"] for doc in oldest]
+                    if ids_to_delete:
+                        status_coll.delete_many({"_id": {"$in": ids_to_delete}})
                 """ Implicit mutex 1.b release """
                 self.reset_write()
 
