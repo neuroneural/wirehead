@@ -35,9 +35,9 @@ wirehead_runtime = WireheadGenerator(
 wirehead_runtime.run_generator()
 
 # Dataset example
-from wirehead import MongoheadDataset
-dataset = MongoheadDataset(config_path = "config.yaml")
-data = dataset[[0]]
+from wirehead import WireheadDataset
+dataset = WireheadDataset(config_path = "config.yaml")
+data = dataset[[0]]  # {0: {"data": tensor, "label": tensor}}
 ```
 
 ## MongoDB Setup Required
@@ -55,6 +55,7 @@ For full documentation and examples, visit: https://github.com/neuroneural/wireh
         'torch',
         'numpy',
         'PyYaml',
+        'mindfultensors @ git+https://github.com/afftab/mindfultensors.git@dev',
     ],
     entry_points={
         'console_scripts': [

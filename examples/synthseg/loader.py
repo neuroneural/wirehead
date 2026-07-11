@@ -1,13 +1,13 @@
 import sys
 
 import torch
-from wirehead import MongoheadDataset
+from wirehead import WireheadDataset
 
-dataset = MongoheadDataset(config_path = "config.yaml")
+dataset = WireheadDataset(config_path = "config.yaml")
 
 idx = [0] 
 data = dataset[idx]
-sample, label = data[0]['input'], data[0]['label']
+sample, label = data[idx[0]]['data'], data[idx[0]]['label']
 print(sample.shape)
 print(label.shape)
 print("Fetched successfully")
