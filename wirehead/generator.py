@@ -48,6 +48,11 @@ class WireheadGenerator:
         self.db = client[dbname]
         self.swap_cap = config.get("SWAP_CAP")
         self.sample = tuple(config.get("SAMPLE"))
+        dtypes = config.get("DTYPES") or {}
+        missing = [kind for kind in self.sample if kind not in dtypes]
+        if missing:
+            raise ValueError(f"config DTYPES missing entries for kind(s): {missing}")
+        self.dtypes = dtypes
         self.chunksize = config.get("CHUNKSIZE")
         self.collectionw = config.get("WRITE_COLLECTION") + ".bin"
         self.collectionr = config.get("READ_COLLECTION") + ".bin"
@@ -250,7 +255,7 @@ class WireheadGenerator:
             if torch.is_tensor(value):
                 value = value.to(torch.uint8)
             # else: scalar (int/float/bool), passed through unchanged
-            chunks += build_kind_docs(index, kind, value, chunk_size_mb=self.chunksize)
+            chunks += build_kind_docs(index, kind, value, dtype=self.dtypes[kind], chunk_size_mb=self.chunksize)
         return chunks
 
 
