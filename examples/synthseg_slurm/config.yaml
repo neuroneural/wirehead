@@ -3,6 +3,7 @@ DBNAME: "synthseg-example"
 SWAP_CAP: 2
 
 SAMPLE: ["data", "label"]
+DTYPES: {"data": "f32", "label": "long"}
 WRITE_COLLECTION: "write"
 READ_COLLECTION: "read"
 COUNTER_COLLECTION: "counter"

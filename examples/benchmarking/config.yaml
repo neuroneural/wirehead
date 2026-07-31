@@ -4,6 +4,7 @@ SWAP_CAP: 100        # max size for write/read collection. Bigger gives bigger b
 
 # Change if you know what you're doing
 SAMPLE: ["data", "label"]
+DTYPES: {"data": "f32", "label": "long"}
 WRITE_COLLECTION: "write"
 READ_COLLECTION: "read"
 COUNTER_COLLECTION: "counter"

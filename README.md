@@ -118,13 +118,13 @@ if __name__ == "__main__":
 ## 2. Dataset
 ```python
 import torch
-from wirehead import MongoheadDataset
+from wirehead import WireheadDataset
 
-dataset = MongoheadDataset(config_path = "config.yaml")
+dataset = WireheadDataset(config_path = "config.yaml")
 
-idx = [0] 
+idx = [0]
 data = dataset[idx]
-sample, label = data[0]['input'], data[0]['label']
+sample, label = data[idx[0]]['data'], data[idx[0]]['label']  # keyed by original index, then kind name
 ```
 
 # III. Config guide

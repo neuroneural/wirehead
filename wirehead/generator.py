@@ -1,16 +1,16 @@
 """ Wirehead Generator Class """
 
-import io
 import os
 import time
 from typing import Any, Generator, Tuple
 
 import yaml
-import bson
 import torch
 import numpy as np
 from pymongo import MongoClient, ReturnDocument, ASCENDING
 from pymongo.errors import OperationFailure, ConnectionFailure, BulkWriteError
+
+from mindfultensors.utils import build_kind_docs
 
 class WireheadGenerator:
     """
@@ -48,6 +48,11 @@ class WireheadGenerator:
         self.db = client[dbname]
         self.swap_cap = config.get("SWAP_CAP")
         self.sample = tuple(config.get("SAMPLE"))
+        dtypes = config.get("DTYPES") or {}
+        missing = [kind for kind in self.sample if kind not in dtypes]
+        if missing:
+            raise ValueError(f"config DTYPES missing entries for kind(s): {missing}")
+        self.dtypes = dtypes
         self.chunksize = config.get("CHUNKSIZE")
         self.collectionw = config.get("WRITE_COLLECTION") + ".bin"
         self.collectionr = config.get("READ_COLLECTION") + ".bin"
@@ -87,7 +92,7 @@ class WireheadGenerator:
         if self.ping(self.collectionw):
             self.db[self.collectionw].drop()
         self.db.create_collection(self.collectionw)
-        self.db[self.collectionw].create_index([("id", ASCENDING)], background=True)
+        self.db[self.collectionw].create_index([("id", ASCENDING), ("kind", ASCENDING)], background=True)
 
 
     def reset_counter_and_write(self):
@@ -107,7 +112,9 @@ class WireheadGenerator:
             # Create write collection
             try:
                 write_collection = self.db[self.collectionw]
-                write_collection.create_index([("id", ASCENDING)], background=True)
+                write_collection.create_index(
+                    [("id", ASCENDING), ("kind", ASCENDING)], background=True
+                )
                 # Create status collection (empty)
                 _status_collection = self.db['status']
                 print("Generator: Database reinitialized successfully.")
@@ -235,60 +242,20 @@ class WireheadGenerator:
 
     def chunkify(self, data, index):
         """
-        Converts a tuple of tensors and their labels into
-        a list of chunks of serialized objects for mongodb
+        Converts a tuple of samples (tensors and/or scalars) into a list of
+        docs for mongodb: tensors are chunked binary, scalars are single docs
         """
-
-        def chunk_binobj(tensor_compressed, idx, kind, chunksize):
-            """
-            Convert chunksize from megabytes to bytes
-            """
-            chunksize_bytes = chunksize * 1024 * 1024
-            # Calculate the number of chunks
-            num_chunks = len(tensor_compressed) // chunksize_bytes
-            if len(tensor_compressed) % chunksize_bytes != 0:
-                num_chunks += 1
-            # Yield chunks
-            for i in range(num_chunks):
-                start = i * chunksize_bytes
-                end = min((i + 1) * chunksize_bytes, len(tensor_compressed))
-                chunk = tensor_compressed[start:end]
-                yield {
-                    "id": idx,
-                    "chunk_id": i,
-                    "kind": kind,
-                    "chunk": bson.Binary(chunk),
-                }
-
-        def tensor2bin(tensor):
-            """
-            Seralize a torch tensor into an IO buffer
-            """
-            tensor_1d = tensor.to(torch.uint8)
-            buffer = io.BytesIO()
-            torch.save(tensor_1d, buffer)
-            tensor_binary = buffer.getvalue()
-            return tensor_binary
-
         chunks = []
-        binobj = data
         kinds = self.sample
-        for i, kind in enumerate(kinds):
-            if isinstance(binobj[i], torch.Tensor):
-                payload = binobj[i]
-            elif isinstance(binobj[i], np.ndarray):
-                payload = torch.from_numpy(binobj[i])
-            else:
-                # It's neither a PyTorch tensor nor a NumPy array
-                raise TypeError(f"Unsupported type for binobj[{i}]: {type(binobj[i])}")
-            chunks += list(
-                chunk_binobj(
-                    tensor2bin(payload),
-                    index,
-                    kind,
-                    self.chunksize,
-                )
-            )
+        for i in range(len(kinds)):
+            kind = kinds[i]
+            value = data[i]
+            if isinstance(value, np.ndarray):
+                value = torch.from_numpy(value)
+            if torch.is_tensor(value):
+                value = value.to(torch.uint8)
+            # else: scalar (int/float/bool), passed through unchanged
+            chunks += build_kind_docs(index, kind, value, dtype=self.dtypes[kind], chunk_size_mb=self.chunksize)
         return chunks
 
 

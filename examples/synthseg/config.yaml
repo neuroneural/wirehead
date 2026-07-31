@@ -4,6 +4,7 @@ SWAP_CAP: 2
 
 # Change if you know what you're doing
 SAMPLE: ["data", "label"]
+DTYPES: {"data": "f32", "label": "long"}
 WRITE_COLLECTION: "write"
 READ_COLLECTION: "read"
 COUNTER_COLLECTION: "counter"
